@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SustainAlign — Researcher Toolkit</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="min-h-screen bg-gradient-to-b from-sblue to-sgreen p-10">
+
+<div id="nav-slot"></div>
+
+<h1 class="text-2xl font-bold mb-2">Researcher Toolkit</h1>
+<p class="text-sm text-slate-700 mb-6">
+  Export mapped regulations, harmonization mapping, validation summaries, and action plans.
+</p>
+
+<div class="space-y-4">
+  <button id="btnJSON" class="px-4 py-2 bg-sgreen600 text-white rounded">Export JSON</button>
+  <button id="btnCSV" class="px-4 py-2 bg-sblue600 text-white rounded">Export CSV</button>
+  <button id="btnXLSX" class="px-4 py-2 bg-accent text-white rounded">Export Excel</button>
+  <button id="btnPDF" class="px-4 py-2 bg-slate-800 text-white rounded">Export PDF</button>
+</div>
+
+<div id="footer-slot" class="mt-10"></div>
+
+<script type="module">
+  import { injectLayout } from "../shared/components.js";
+  import { exportJSON, exportCSV, exportXLSX, exportPDF } from "./export.js";
+
+  try { injectLayout(); } catch(e) {}
+
+  const sampleData = [
+    ["ID", "Title", "Topic"],
+    ["KLHK-001", "PROPER Rating", "Emission"],
+    ["PERMEN-2021", "Air Quality Regulation", "Air"]
+  ];
+
+  document.getElementById("btnJSON").onclick = () =>
+    exportJSON(sampleData, "research.json");
+
+  document.getElementById("btnCSV").onclick = () =>
+    exportCSV(sampleData, "research.csv");
+
+  document.getElementById("btnXLSX").onclick = () =>
+    exportXLSX(sampleData, "research.xlsx");
+
+  document.getElementById("btnPDF").onclick = () =>
+    exportPDF("Research Export — SustainAlign", "research.pdf");
+</script>
+</body>
+</html>

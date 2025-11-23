@@ -1,0 +1,5 @@
+/* Custom global styles (optional) */
+
+html, body {
+  scroll-behavior: smooth;
+}

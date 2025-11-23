@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Report Builder — SustainAlign</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {theme:{extend:{colors:{sblue:'#D7EEF7',sblue600:'#3B97C1',sgreen:'#E8F8EE',sgreen600:'#4FB48E',accent:'#6EC5C5'}}}};
+  </script>
+  <style>
+    :root{--glass-bg:rgba(255,255,255,.42);} .glass{background:var(--glass-bg);backdrop-filter:blur(8px);} .section-editor{min-height:120px}
+    .outline-item{cursor:pointer}
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-sblue to-sgreen text-slate-800 antialiased">
+
+<!-- Proposal reference: local file (available in environment) -->
+<p class="sr-only">Proposal source file: /mnt/data/PROPOSAL_SOLVIA_REGULATORY INTEGRATION FOR SUSTAINABILITY_SUSTAINALIGN, SISTEM PENYELASAN REGULASI LOKAL DAN GLOBAL UNTUK KEPATUHAN KEBERLANJUTAN PERUSAHAAN.docx</p>
+
+<header class="glass sticky top-0 z-40 border-b border-white/30">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-12 h-12 rounded-full bg-gradient-to-br from-sblue600 to-sgreen600 flex items-center justify-center text-white font-bold shadow">SA</div>
+      <div>
+        <h1 class="text-lg font-bold">SustainAlign — Report Builder</h1>
+        <p class="text-xs text-slate-600">Advanced mock: auto-outline + auto-fill paragraphs + preview & export</p>
+      </div>
+    </div>
+    <div class="flex gap-3">
+      <a id="openProposal" class="px-3 py-1 rounded bg-white/80 text-sm" href="/mnt/data/PROPOSAL_SOLVIA_REGULATORY INTEGRATION FOR SUSTAINABILITY_SUSTAINALIGN, SISTEM PENYELARASAN REGULASI LOKAL DAN GLOBAL UNTUK KEPATUHAN KEBERLANJUTAN PERUSAHAAN.docx">Open Proposal</a>
+      <button id="exportJson" class="px-3 py-1 rounded bg-sblue600 text-white">Export JSON</button>
+      <button id="downloadHtml" class="px-3 py-1 rounded bg-sgreen600 text-white">Download HTML</button>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-7xl mx-auto p-6 grid lg:grid-cols-3 gap-6">
+  <section class="lg:col-span-1 glass p-6 rounded-xl shadow">
+    <h3 class="font-bold text-lg">Report Settings</h3>
+    <div class="mt-4">
+      <label class="text-xs text-slate-600">Company / Sample</label>
+      <input id="companyName" class="mt-2 w-full px-3 py-2 rounded bg-white border" placeholder="Nama Perusahaan" />
+    </div>
+
+    <div class="mt-4">
+      <label class="text-xs text-slate-600">Sector</label>
+      <select id="sectorSel" class="mt-2 w-full px-3 py-2 rounded bg-white border text-sm">
+        <option value="manufacturing">Manufacturing — Kimia</option>
+        <option value="energy">Energy — Power</option>
+        <option value="finance">Finance</option>
+        <option value="agri">Agriculture</option>
+      </select>
+    </div>
+
+    <div class="mt-4">
+      <label class="text-xs text-slate-600">Template Style</label>
+      <select id="templateStyle" class="mt-2 w-full px-3 py-2 rounded bg-white border text-sm">
+        <option value="GRI">GRI-aligned</option>
+        <option value="ISSB">ISSB-aligned</option>
+      </select>
+    </div>
+
+    <div class="mt-6">
+      <button id="genOutline" class="w-full px-4 py-2 rounded bg-sgreen600 text-white">Generate Outline & Draft</button>
+    </div>
+
+    <div class="mt-6 text-sm text-slate-600">
+      <strong>Notes:</strong>
+      <ul class="list-disc list-inside mt-2">
+        <li>Output is mock—editable before export.</li>
+        <li>Export includes JSON & downloadable HTML preview.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="lg:col-span-2 glass p-6 rounded-xl shadow">
+    <div class="flex gap-6">
+      <div class="w-1/3">
+        <h4 class="font-semibold">Outline</h4>
+        <div id="outline" class="mt-3 space-y-2 text-sm"></div>
+      </div>
+
+      <div class="flex-1">
+        <h4 class="font-semibold">Editor</h4>
+        <div id="editorArea" class="mt-3 space-y-4">
+          <!-- sections will be inserted here -->
+        </div>
+        <div class="mt-4 flex gap-3">
+          <button id="previewBtn" class="px-4 py-2 rounded bg-sblue600 text-white">Preview</button>
+          <button id="autoFillSections" class="px-4 py-2 rounded border">Auto-fill Content</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="previewPane" class="mt-6 bg-white p-4 rounded hidden">
+      <h3 id="previewTitle" class="text-xl font-bold"></h3>
+      <div id="previewBody" class="mt-3 text-sm text-slate-700"></div>
+    </div>
+  </section>
+</main>
+
+<footer class="py-6 text-center text-sm text-slate-600">© SustainAlign — Report Builder</footer>
+
+<script type="module">
+  import { REGS, INDICATORS, GLOBAL_MAP, LOCAL_REGS, TOPICS, similarity, simulateDelay, exportValidationSummary } from '../shared/shared.js';
+
+  const sectorSel = document.getElementById('sectorSel');
+  const genOutline = document.getElementById('genOutline');
+  const outlineEl = document.getElementById('outline');
+  const editorArea = document.getElementById('editorArea');
+  const previewBtn = document.getElementById('previewBtn');
+  const previewPane = document.getElementById('previewPane');
+  const previewTitle = document.getElementById('previewTitle');
+  const previewBody = document.getElementById('previewBody');
+  const autoFillSections = document.getElementById('autoFillSections');
+  const exportJson = document.getElementById('exportJson');
+  const downloadHtml = document.getElementById('downloadHtml');
+
+  function basicOutlineForTemplate(template){
+    // simple outline based on GRI/ISSB
+    const core = [
+      'Executive Summary',
+      'Company Profile',
+      'Governance & Strategy',
+      'Material Topics & Stakeholder Engagement',
+      'Performance: Environmental',
+      'Performance: Social',
+      'Performance: Governance',
+      'Conclusion & Next Steps'
+    ];
+    return core;
+  }
+
+  function createSection(id, title, placeholder){
+    const wrap = document.createElement('div'); wrap.className='p-3 border rounded bg-white/70';
+    wrap.innerHTML = `
+      <div class="flex justify-between items-center">
+        <strong>${title}</strong>
+        <div class="text-xs text-slate-500">Section</div>
+      </div>
+      <textarea data-section="${id}" class="w-full mt-2 section-editor px-3 py-2 rounded border bg-white" placeholder="${placeholder}"></textarea>
+    `;
+    return wrap;
+  }
+
+  function generateDraft(company, sector, template){
+    outlineEl.innerHTML = ''; editorArea.innerHTML = ''; previewPane.classList.add('hidden');
+    const inds = INDICATORS[sector] || [];
+    const regs = REGS[sector] || [];
+
+    const outline = basicOutlineForTemplate(template);
+    outline.forEach((o,idx)=>{
+      const id = `sec-${idx}`;
+      const li = document.createElement('div'); li.className='outline-item p-2 rounded hover:bg-white/30'; li.textContent = o; outlineEl.appendChild(li);
+      const placeholder = `Draft paragraph untuk ${o}. Rekomendasi indikator: ${inds.join(', ')}. Regulasi relevan: ${regs.map(r=>r.id).join(', ')}`;
+      const sec = createSection(id, o, placeholder);
+      editorArea.appendChild(sec);
+    });
+
+    // small summary header for preview
+    previewTitle.textContent = `${company} — Sustainability Report (Draft)`;
+  }
+
+  genOutline.addEventListener('click', async ()=>{
+    genOutline.textContent = 'Generating...'; genOutline.disabled = true;
+    await simulateDelay(400,900);
+    generateDraft(document.getElementById('companyName').value || 'Sample Co', sectorSel.value, document.getElementById('templateStyle').value);
+    genOutline.textContent = 'Generate Outline & Draft'; genOutline.disabled = false;
+  });
+
+  autoFillSections.addEventListener('click', ()=>{
+    // fill each textarea with a bit more detailed mock content using indicators & topics
+    const company = document.getElementById('companyName').value || 'Sample Co';
+    const sector = sectorSel.value; const inds = INDICATORS[sector] || [];
+    const textExtras = `\n\nRecommended indicators: ${inds.join(', ')}. Align with local regulations ${ (REGS[sector]||[]).map(r=>r.id).join(', ') }.`;
+    document.querySelectorAll('textarea[data-section]').forEach((ta,i)=>{
+      if(ta.value.trim().length<20){
+        ta.value = `Section ${i+1} — ${ta.getAttribute('placeholder')}\n\n${company} has assessed its ${inds[0] || 'relevant'} performance... ` + textExtras;
+      }
+    });
+  });
+
+  previewBtn.addEventListener('click', ()=>{
+    // assemble preview
+    const title = previewTitle.textContent;
+    const sections = Array.from(document.querySelectorAll('textarea[data-section]')).map(ta=> ta.value || ta.getAttribute('placeholder'));
+    previewBody.innerHTML = sections.map(s=> `<div class="mb-4">${s.replace(/\n/g,'<br/>')}</div>`).join('');
+    previewPane.classList.remove('hidden');
+  });
+
+  exportJson.addEventListener('click', ()=>{
+    const company = document.getElementById('companyName').value || 'Sample Co';
+    const sector = sectorSel.value;
+    const sections = Array.from(document.querySelectorAll('textarea[data-section]')).map((ta,i)=> ({title: ta.parentElement.querySelector('strong').textContent, content: ta.value}));
+    const payload = {company, sector, sections, timestamp: new Date().toISOString()};
+    exportValidationSummary(payload, `sustainability_report_${company.replace(/\s+/g,'_')}.json`);
+  });
+
+  downloadHtml.addEventListener('click', ()=>{
+    const company = document.getElementById('companyName').value || 'Sample Co';
+    const title = `${company} — Sustainability Report (Draft)`;
+    const sections = Array.from(document.querySelectorAll('textarea[data-section]')).map(ta=> ({title: ta.parentElement.querySelector('strong').textContent, content: ta.value || ta.getAttribute('placeholder')}));
+    const html = `<!doctype html><html><head><meta charset='utf-8'><title>${title}</title></head><body><h1>${title}</h1>${sections.map(s=>`<h2>${s.title}</h2><p>${s.content.replace(/\n/g,'<br/>')}</p>`).join('')}<footer><p>Generated by SustainAlign</p></footer></body></html>`;
+    const blob = new Blob([html], {type:'text/html'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `report_${company.replace(/\s+/g,'_')}.html`; a.click(); URL.revokeObjectURL(url);
+  });
+
+  // seed
+  document.addEventListener('DOMContentLoaded', ()=>{
+    // initial outline empty
+  });
+</script>
+</body>
+</html>
+

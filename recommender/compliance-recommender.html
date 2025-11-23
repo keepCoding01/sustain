@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Compliance Recommender — SustainAlign</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={theme:{extend:{colors:{sblue:'#D7EEF7',sblue600:'#3B97C1',sgreen:'#E8F8EE',sgreen600:'#4FB48E',accent:'#6EC5C5'}}}};</script>
+  <style>
+    :root{--glass-bg:rgba(255,255,255,.42);} .glass{background:var(--glass-bg);backdrop-filter:blur(8px);}
+    .card{padding:1rem;border-radius:14px;background:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.5)}
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-sblue to-sgreen text-slate-800 antialiased">
+
+<div id="nav-slot"></div>
+
+<main class="max-w-7xl mx-auto p-6 space-y-8">
+  <!-- INPUT FORM -->
+  <section class="glass p-6 rounded-xl shadow">
+    <h2 class="text-2xl font-bold">Company Compliance Recommender</h2>
+    <p class="text-sm text-slate-600 mt-1">Rekomendasi kepatuhan berbasis profil perusahaan.</p>
+
+    <div class="mt-6 grid md:grid-cols-3 gap-4">
+      <div>
+        <label class="text-xs">Industri</label>
+        <select id="industry" class="mt-2 w-full px-3 py-2 rounded bg-white border text-sm">
+          <option value="manufacturing">Manufacturing — Kimia</option>
+          <option value="energy">Energy — Powerplant</option>
+          <option value="finance">Finance / Banking</option>
+          <option value="agri">Agriculture</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs">Lokasi</label>
+        <select id="location" class="mt-2 w-full px-3 py-2 rounded bg-white border text-sm">
+          <option value="jawa">Pulau Jawa</option>
+          <option value="sumatera">Sumatera</option>
+          <option value="kalimantan">Kalimantan</option>
+          <option value="sulawesi">Sulawesi</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs">Skala Perusahaan</label>
+        <select id="scale" class="mt-2 w-full px-3 py-2 rounded bg-white border text-sm">
+          <option value="besar">Besar</option>
+          <option value="menengah">Menengah</option>
+          <option value="kecil">Kecil</option>
+        </select>
+      </div>
+    </div>
+
+    <button id="runRec" class="mt-5 px-4 py-2 rounded-lg bg-sgreen600 text-white font-semibold">
+      Generate Recommendation
+    </button>
+  </section>
+
+  <!-- RESULTS -->
+  <section class="glass p-6 rounded-xl shadow">
+    <h3 class="text-xl font-bold">Rekomendasi Regulasi Wajib</h3>
+    <div id="regResult" class="mt-4 space-y-4"></div>
+  </section>
+
+  <section class="glass p-6 rounded-xl shadow">
+    <h3 class="text-xl font-bold">Rekomendasi Indikator Global</h3>
+    <div id="indicatorResult" class="mt-4 space-y-4"></div>
+  </section>
+
+  <section class="glass p-6 rounded-xl shadow">
+    <h3 class="text-xl font-bold">Prioritas Aksi & Roadmap</h3>
+    <div id="roadmap" class="mt-4 space-y-4"></div>
+  </section>
+
+  <button id="exportBtn" class="px-3 py-2 bg-sblue600 text-white rounded-lg">Export JSON</button>
+
+</main>
+
+<div id="footer-slot"></div>
+
+<script type="module">
+  import { injectLayout } from "../shared/components.js";
+  import { REGs_GLOBAL, INDICATORS_ALL } from "../shared/shared.js";
+  import { generateActionPlan } from "./recommender.js";
+  import { exportJSON } from "../export/export.js";
+
+  injectLayout();
+
+  const el = id => document.getElementById(id);
+
+  el("runRec").addEventListener("click", async ()=> {
+    const sector = el("industry").value;
+
+    const regs = REGs_GLOBAL[sector] || [];
+    const indicators = INDICATORS_ALL[sector] || [];
+    const roadmap = await generateActionPlan(sector, -18, ['emission','energy']);
+
+    render(regs, indicators, roadmap.plan);
+  });
+
+  function render(regs, indicators, actions){
+    const r = el("regResult");
+    r.innerHTML = regs.map(r => `<div class='card'><b>${r.id}</b><div>${r.title}</div></div>`).join("");
+
+    const i = el("indicatorResult");
+    i.innerHTML = indicators.map(v => `<div class="card">${v}</div>`).join("");
+
+    const rm = el("roadmap");
+    rm.innerHTML = actions.map(a=> `
+      <div class="card">
+        <div class="font-bold">${a.priority} — ${a.title}</div>
+        <div class="text-sm mt-1">${a.detail}</div>
+        <div class="text-xs mt-2 text-slate-500">Target: ${a.month} bulan</div>
+      </div>`).join("");
+  }
+
+  el("exportBtn").addEventListener("click", ()=>{
+    exportJSON({records: window.lastRec || {} }, "compliance_output.json");
+  });
+
+</script>
+</body>
+</html>

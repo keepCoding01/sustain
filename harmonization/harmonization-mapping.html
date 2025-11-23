@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Harmonization Mapping — SustainAlign</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            sblue: '#D7EEF7',
+            sblue600: '#3B97C1',
+            sgreen: '#E8F8EE',
+            sgreen600: '#4FB48E',
+            accent: '#6EC5C5'
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    :root { --glass-bg: rgba(255,255,255,.42); }
+    .glass { background: var(--glass-bg); backdrop-filter: blur(8px); }
+    .node { padding:.45rem .75rem; border-radius:14px; }
+    .edge { height:2px; width:120px; background:rgba(0,0,0,.12); }
+  </style>
+</head>
+
+<body class="min-h-screen bg-gradient-to-b from-sblue to-sgreen text-slate-800 antialiased">
+  
+
+  <div id="nav-slot"></div>
+
+  <main class="max-w-7xl mx-auto p-6 space-y-8">
+
+    <section class="glass p-6 rounded-xl shadow">
+      <h2 class="text-2xl font-bold">Local → Global Harmonization Map</h2>
+      <p class="text-sm text-slate-600 mt-1">
+        Mapping otomatis regulasi Indonesia dengan standar global (mock AI semantic similarity).
+      </p>
+
+      <div class="mt-6 grid md:grid-cols-3 gap-4">
+        <div>
+          <label class="text-xs text-slate-600">Regulasi Lokal</label>
+          <select id="localReg" class="mt-2 w-full px-3 py-2 rounded bg-white border text-sm"></select>
+        </div>
+
+        <div>
+          <label class="text-xs text-slate-600">Standar Global</label>
+          <select id="globalStd" class="mt-2 w-full px-3 py-2 rounded bg-white border text-sm">
+            <option value="GRI">GRI Standards</option>
+            <option value="ISSB">ISSB S1/S2</option>
+            <option value="SASB">SASB Industry</option>
+          </select>
+        </div>
+
+        <div class="flex items-end">
+          <button id="mapBtn"
+                  class="w-full px-4 py-2 rounded-lg bg-sgreen600 text-white font-semibold">
+            Generate Mapping
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="glass p-6 rounded-xl shadow">
+      <h3 class="text-xl font-bold">Graph Visual</h3>
+      <p class="text-sm text-slate-600 mt-1">
+        Visualisasi sederhana hasil mapping semantic similarity.
+      </p>
+
+      <div id="graphArea"
+          class="mt-6 p-6 rounded-xl bg-white/50 min-h-[230px] flex items-center justify-center text-slate-500">
+        Belum ada mapping.
+      </div>
+    </section>
+
+    <section class="glass p-6 rounded-xl shadow">
+      <h3 class="text-xl font-bold">Hasil Mapping</h3>
+      <div id="resultSummary" class="mt-2 text-sm font-semibold"></div>
+      <div id="resultList" class="mt-4 space-y-3 text-sm text-slate-700"></div>
+
+      <div class="mt-4 flex gap-3">
+        <button id="exportBtn"
+                class="px-4 py-2 rounded-lg bg-accent text-white font-semibold">
+          Export Mapping Result
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <div id="footer-slot"></div>
+
+  <script type="module">
+    
+    import { injectLayout } from "../shared/components.js";
+    injectLayout();
+    import { LOCAL_REGS, REGs_GLOBAL } from "../shared/shared.js";
+    import { mapLocalToGlobal } from "./mapping.js";
+    import { exportJSON } from "../export/export.js";
+
+    const el = id => document.getElementById(id);
+
+    function initDropdown() {
+      LOCAL_REGS.forEach(r => {
+        const op = document.createElement("option");
+        op.value = r.id;
+        op.textContent = `${r.id} — ${r.title}`;
+        el("localReg").appendChild(op);
+      });
+    }
+
+    function renderGraph(local, top) {
+      el("graphArea").innerHTML = `
+        <div class="flex flex-col items-center gap-4 fade">
+          <div class="node bg-sblue text-sblue600 font-semibold">${local.title}</div>
+          <div class="edge"></div>
+          <div class="node bg-sgreen text-sgreen600 font-semibold">${top.id} — ${top.topic}</div>
+        </div>
+      `;
+    }
+
+    el("mapBtn").addEventListener("click", async () => {
+      const id = el("localReg").value;
+      const localReg = LOCAL_REGS.find(r => r.id === id);
+
+      el("graphArea").innerHTML = "⏳ Menghitung mapping...";
+      el("resultList").innerHTML = "";
+
+      const result = await mapLocalToGlobal(localReg);
+
+      renderGraph(localReg, result[0]);
+
+      const list = el("resultList");
+      result.forEach(r => {
+        list.innerHTML += `
+          <div class="p-3 rounded bg-white/80 border fade">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="font-semibold">${r.id}</div>
+                <div class="text-xs text-slate-600">${r.topic}</div>
+              </div>
+              <div class="font-bold text-sblue600">${r.score}%</div>
+            </div>
+          </div>`;
+      });
+
+      el("resultSummary").innerHTML =
+        `Top match: ${result[0].id} — ${result[0].topic}<br/>Confidence ${result[0].score}%`;
+
+      // Export button behavior
+      el("exportBtn").onclick = () =>
+        exportJSON({ local: id, results: result }, "harmonization_result.json");
+    });
+
+    initDropdown();
+  </script>
+
+</body>
+</html>

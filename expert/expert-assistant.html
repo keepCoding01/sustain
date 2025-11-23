@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Expert Assistant — SustainAlign</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {theme:{extend:{colors:{sblue:'#D7EEF7',sblue600:'#3B97C1',sgreen:'#E8F8EE',sgreen600:'#4FB48E',accent:'#6EC5C5'}}}};
+  </script>
+  <style>
+    :root{--glass-bg:rgba(255,255,255,.42);} .glass{background:var(--glass-bg);backdrop-filter:blur(8px);} .msg{max-width:78%}
+    .user{background:linear-gradient(90deg,#3B97C1,#4FB48E);color:white}
+    .bot{background:white;border:1px solid rgba(2,6,23,0.06)}
+    .typing{width:40px;height:10px;background:linear-gradient(90deg,#eee,#ddd);border-radius:6px}
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-sblue to-sgreen text-slate-800 antialiased">
+
+<!-- NAVBAR injected here -->
+<div id="nav-slot"></div>
+
+<!-- Proposal reference (local file) -->
+<!-- Source Proposal: /mnt/data/PROPOSAL_SOLVIA_REGULATORY INTEGRATION FOR SUSTAINABILITY_SUSTAINALIGN, SISTEM PENYELARASAN REGULASI LOKAL DAN GLOBAL UNTUK KEPATUHAN KEBERLANJUTAN PERUSAHAAN.docx -->
+
+<main class="max-w-7xl mx-auto p-6 grid lg:grid-cols-3 gap-6">
+  <!-- Chat area -->
+  <section class="lg:col-span-2 glass p-6 rounded-xl shadow flex flex-col h-[70vh]">
+    <div id="chatLog" class="flex-1 overflow-auto space-y-4 pr-2" aria-live="polite"></div>
+
+    <form id="chatForm" class="mt-4 flex gap-3 items-center">
+      <input id="chatInput" placeholder="Tanya tentang regulasi, mis. 'Apa hubungannya GRI 305 dengan Peraturan Emisi 2021?'" class="flex-1 px-4 py-3 rounded-2xl border bg-white/90" />
+      <button id="sendBtn" class="px-4 py-3 rounded-2xl bg-sgreen600 text-white font-semibold">Kirim</button>
+    </form>
+  </section>
+
+  <!-- Right panel: quick tools & context -->
+  <aside class="glass p-6 rounded-xl shadow space-y-4">
+    <h4 class="font-semibold">Quick Tools</h4>
+    <div>
+      <label class="text-xs text-slate-600">Quick Query</label>
+      <select id="quickSel" class="mt-2 w-full px-3 py-2 rounded bg-white border text-sm">
+        <option value="">— pilih contoh —</option>
+        <option value="map GRI 305">Mapping: GRI 305 → Peraturan Emisi</option>
+        <option value="required indicators manufacturing">Required indicators (manufacturing)</option>
+        <option value="how to validate emission inventory">How to validate emission inventory</option>
+        <option value="recommend indicators energy">Recommend indicators (energy)</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="text-xs text-slate-600">Search regulation</label>
+      <input id="searchReg" class="mt-2 w-full px-3 py-2 rounded bg-white border text-sm" placeholder="ketik id atau kata kunci" />
+      <div id="searchRes" class="mt-2 text-sm text-slate-700"></div>
+      <button id="searchBtn" class="mt-2 px-3 py-2 rounded bg-sblue600 text-white w-full">Cari</button>
+    </div>
+
+    <div>
+      <h5 class="font-semibold">Context</h5>
+      <div id="ctxRegs" class="text-sm text-slate-700 mt-2">Loaded regs: —</div>
+    </div>
+  </aside>
+</main>
+
+<!-- FOOTER injected here -->
+<div id="footer-slot"></div>
+
+<script type="module">
+  // inject layout (navbar/footer) if components available
+  import { injectLayout } from "../shared/components.js";
+  try { injectLayout(); } catch(e){ /* ignore if not present on runner */ }
+
+  // shared datasets and helpers
+  import {
+    LOCAL_REGS,
+    GLOBAL_MAP,
+    REGS,
+    INDICATORS,
+    TOPICS,
+    similarity,
+    el,
+    simulateDelay
+  } from '../shared/shared.js';
+
+  // recommender module (modular)
+  import { recommendIndicatorsForSector, generateSectorRecommendations } from '../recommender/recommender.js';
+
+  // UI elements
+  const chatLog = el('chatLog');
+  const chatForm = el('chatForm');
+  const chatInput = el('chatInput');
+  const quickSel = el('quickSel');
+  const searchBtn = el('searchBtn');
+  const searchReg = el('searchReg');
+  const searchRes = el('searchRes');
+  const ctxRegs = el('ctxRegs');
+
+  // init context
+  ctxRegs.textContent = LOCAL_REGS.map(r => r.id).join(', ');
+
+  // message utilities
+  function appendMessage(text, who='bot'){
+    const wrap = document.createElement('div');
+    wrap.className = who==='user'? 'flex justify-end': 'flex justify-start';
+    const b = document.createElement('div'); b.className = `p-3 rounded-xl msg ${who==='user'? 'user': 'bot'}`;
+    b.innerHTML = text;
+    wrap.appendChild(b);
+    chatLog.appendChild(wrap);
+    chatLog.scrollTop = chatLog.scrollHeight;
+  }
+
+  function renderTyping(){
+    const t = document.createElement('div'); t.className='flex justify-start';
+    const dot=document.createElement('div'); dot.className='p-2 bg-white rounded-xl typing'; t.appendChild(dot);
+    chatLog.appendChild(t); chatLog.scrollTop = chatLog.scrollHeight; return t;
+  }
+
+  function removeTyping(node){ if(node && node.remove) node.remove(); }
+
+  // --- Hybrid answer function: mapping, search, similarity + recommender hooks ---
+  async function answerQuery(q){
+    const ql = q.toLowerCase();
+
+    // 1) Mapping question detection (existing behavior)
+    if(ql.includes('gri') || ql.match(/gri\s*\d+/i)){
+      const allGRI = GLOBAL_MAP['GRI'] || [];
+      const found = allGRI.find(g => q.toLowerCase().includes(g.id.toLowerCase().split(' ')[0].toLowerCase()) || q.toLowerCase().includes(g.topic.toLowerCase().split(' ')[0]));
+      if(found){
+        const locals = LOCAL_REGS.filter(r => (r.keywords||[]).some(k => found.topic.toLowerCase().includes(k))).map(r => r.id);
+        await simulateDelay(400,800);
+        return `**Mapping result:** <br/><strong>${found.id} — ${found.topic}</strong><br/>Related local regulation(s): ${locals.length? locals.join(', '): 'None found in dataset.'}<br/><br/>**Recommendation:** Align your disclosure to ${found.id} and reference local regulation(s) listed above.`;
+      }
+    }
+
+    // 2) Required indicators (use recommender for better output)
+    if(ql.includes('required indicators') || ql.includes('required indicator') || ql.includes('required metrics')){
+      const sector = Object.keys(REGS).find(s => ql.includes(s)) || 'manufacturing';
+      // use recommender module to fetch indicators with confidence
+      const rec = await recommendIndicatorsForSector(sector, { baseIndicators: INDICATORS });
+      // rec.recommended is an array {indicator, confidence}
+      const listHtml = rec.recommended.map(r => `- ${r.indicator} (confidence ${r.confidence}%)`).join('<br/>- ');
+      return `For sector **${sector}**, recommended indicators: <br/>- ${listHtml}`;
+    }
+
+    // 3) Recommender quick suggestions (if user asks "recommend" or "suggest")
+    if(ql.includes('recommend') || ql.includes('suggest')){
+      // try to detect sector keyword
+      const sector = Object.keys(REGS).find(s => ql.includes(s)) || 'manufacturing';
+      const recPack = await generateSectorRecommendations(sector, -10, ['emission','energy']);
+      // prepare a concise package
+      const inds = recPack.indicators.recommended.slice(0,4).map(i => `${i.indicator} (${i.confidence}%)`).join(', ');
+      const regs = recPack.regulations.slice(0,3).map(r => `${r.id}`).join(', ');
+      const action = recPack.actionPlan.plan[0]?.title || 'Review data collection';
+      return `Recommendations for **${sector}**: <br/>Indicators: ${inds} <br/>Relevant regs: ${regs} <br/>Top action: ${action}`;
+    }
+
+    // 4) Search regulation by id or keyword (existing)
+    if(ql.includes('peraturan') || ql.includes('perm') || ql.includes('limbah') || ql.includes('emisi') || ql.includes('k3')){
+      const hits = LOCAL_REGS.filter(r => (r.id + ' ' + r.title + ' ' + (r.keywords||[]).join(' ')).toLowerCase().includes(ql));
+      await simulateDelay(200,600);
+      if(hits.length) return `Found ${hits.length} regulation(s):<br/>` + hits.map(h=> `<strong>${h.id}</strong> — ${h.title}`).join('<br/>');
+      return `No direct match found for '${q}'. Try a shorter keyword (e.g. 'emisi' or 'limbah').`;
+    }
+
+    // 5) Fallback similarity suggestion (existing)
+    const topics = TOPICS.slice(0,6);
+    const scores = topics.map(t => ({t, score: similarity(q.split(/\W+/), t)})).sort((a,b) => b.score - a.score);
+    await simulateDelay(250,700);
+    return `I think your query relates to **${scores[0].t}** (confidence ${scores[0].score}%).<br/>You can ask: 'Which regulations cover ${scores[0].t}?' or 'Recommend indicators for sector X.'`;
+  }
+
+  // --- Event handlers (keep UI identical, but use modular functions) ---
+  chatForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const q = chatInput.value.trim(); if(!q) return;
+    appendMessage(q, 'user'); chatInput.value = '';
+    const typing = renderTyping();
+    try {
+      const ans = await answerQuery(q);
+      removeTyping(typing);
+      appendMessage(ans, 'bot');
+    } catch (err) {
+      removeTyping(typing);
+      appendMessage('Maaf, terjadi kesalahan saat menjawab. Coba lagi.', 'bot');
+      console.error(err);
+    }
+  });
+
+  quickSel.addEventListener('change', () => {
+    if(!quickSel.value) return;
+    chatInput.value = quickSel.value;
+    chatForm.requestSubmit();
+    quickSel.value = '';
+  });
+
+  searchBtn.addEventListener('click', () => {
+    const k = searchReg.value.trim().toLowerCase(); if(!k) return;
+    const hits = LOCAL_REGS.filter(r => (r.id + ' ' + r.title + ' ' + (r.keywords||[]).join(' ')).toLowerCase().includes(k));
+    if(hits.length) searchRes.innerHTML = hits.map(h => `<div class="p-2 bg-white/80 rounded">${h.id} — ${h.title}</div>`).join('');
+    else searchRes.innerHTML = `<div class='text-sm text-slate-500'>No match</div>`;
+  });
+
+  // seed welcome
+  appendMessage('Halo! Saya Assistant AI SustainAlign. Tanyakan sesuatu terkait regulasi atau indikator.', 'bot');
+
+</script>
+</body>
+</html>

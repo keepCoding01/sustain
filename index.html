@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SustainAlign — ESG Intelligence Platform</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            sblue: '#D7EEF7',
+            sblue600: '#3B97C1',
+            sgreen: '#E8F8EE',
+            sgreen600: '#4FB48E',
+            accent: '#6EC5C5'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    :root { --glass: rgba(255,255,255,0.55); }
+    .glass { background: var(--glass); backdrop-filter: blur(10px); }
+  </style>
+</head>
+
+<body class="min-h-screen bg-gradient-to-b from-sblue to-sgreen text-slate-800 antialiased">
+<div id="nav-slot"></div>
+
+<main class="max-w-6xl mx-auto p-6 space-y-16">
+
+  <!-- HERO -->
+  <section class="text-center mt-10">
+    <h1 class="text-4xl font-extrabold text-slate-800 tracking-tight">
+      Smart ESG Intelligence for Better Compliance & Impact
+    </h1>
+    <p class="mt-4 text-lg text-slate-700 max-w-3xl mx-auto">
+      Platform terintegrasi untuk Aggregation, Harmonization, Benchmarking, AI-Recommendation,
+      dan Automated Validation untuk pelaporan keberlanjutan modern.
+    </p>
+
+    <div class="mt-6 flex justify-center gap-4">
+      <a href="/ui-mock/benchmark-explorer.html" class="px-5 py-3 bg-sblue600 text-white font-semibold rounded-lg shadow">
+        Explore Benchmark
+      </a>
+      <a href="/recommender/compliance-recommender.html" class="px-5 py-3 bg-sgreen600 text-white font-semibold rounded-lg shadow">
+        Get Recommendation
+      </a>
+    </div>
+  </section>
+
+  <!-- FEATURE GRID -->
+  <section class="grid md:grid-cols-3 gap-6">
+    <div class="glass p-6 rounded-xl shadow-lg">
+      <h3 class="text-lg font-bold">Regulatory Aggregation</h3>
+      <p class="text-sm mt-2 text-slate-700">Kumpulkan regulasi dari berbagai sumber & lakukan penyaringan otomatis.</p>
+    </div>
+
+    <div class="glass p-6 rounded-xl shadow-lg">
+      <h3 class="text-lg font-bold">Harmonization Mapping</h3>
+      <p class="text-sm mt-2 text-slate-700">Mapping peraturan lokal ke standar global seperti GRI / ISSB / SASB.</p>
+    </div>
+
+    <div class="glass p-6 rounded-xl shadow-lg">
+      <h3 class="text-lg font-bold">AI Compliance Recommender</h3>
+      <p class="text-sm mt-2 text-slate-700">Menganalisis profil perusahaan dan memberikan rekomendasi prioritas.</p>
+    </div>
+  </section>
+
+  <!-- PREVIEW BUTTONS -->
+  <section class="glass p-8 rounded-xl shadow-xl text-center">
+    <h3 class="text-xl font-bold">Mulai Eksplorasi</h3>
+    <p class="text-sm text-slate-700 mt-1">Coba fitur utama SustainAlign sekarang</p>
+
+    <div class="mt-6 grid sm:grid-cols-3 gap-4">
+      <a href="/aggregation/regulatory-aggregation.html" class="p-4 bg-white rounded-lg shadow text-sm font-semibold hover:bg-sblue">
+        Aggregation
+      </a>
+      <a href="/harmonization/harmonization-mapping.html" class="p-4 bg-white rounded-lg shadow text-sm font-semibold hover:bg-sblue">
+        Harmonization Mapping
+      </a>
+      <a href="/validation/auto-validation.html" class="p-4 bg-white rounded-lg shadow text-sm font-semibold hover:bg-sblue">
+        Auto Validation
+      </a>
+    </div>
+  </section>
+
+</main>
+
+<div id="footer-slot"></div>
+
+<script type="module">
+  import { injectLayout } from "./shared/components.js";
+  injectLayout();
+</script>
+
+</body>
+</html>

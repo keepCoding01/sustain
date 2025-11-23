@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Knowledge Graph — SustainAlign</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            sblue: '#D7EEF7',
+            sblue600: '#3B97C1',
+            sgreen: '#E8F8EE',
+            sgreen600: '#4FB48E',
+            accent: '#6EC5C5'
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    :root { --glass-bg: rgba(255,255,255,.42); }
+    .glass { background: var(--glass-bg); backdrop-filter: blur(8px); }
+    .node-label { font-size: 12px; pointer-events: none; }
+    .tooltip { background: white; border-radius: 8px; padding: 8px; box-shadow: 0 6px 20px rgba(11,42,73,0.08); }
+    .legend-dot { width: 12px; height:12px; border-radius:999px; display:inline-block; margin-right:8px; vertical-align:middle; }
+  </style>
+</head>
+
+<body class="min-h-screen bg-gradient-to-b from-sblue to-sgreen text-slate-800 antialiased">
+
+<div id="nav-slot"></div>
+
+<main class="max-w-7xl mx-auto p-6 space-y-6">
+  <section class="glass p-5 rounded-xl shadow">
+    <div class="flex items-start justify-between">
+      <div>
+        <h1 class="text-2xl font-bold">Regulatory Knowledge Graph</h1>
+        <p class="text-sm text-slate-600 mt-1">
+          Visualisasi hubungan antara regulasi Indonesia dan standar global (GRI / ISSB / SASB) berdasarkan mapping real.
+        </p>
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <button id="exportJSON" class="px-3 py-2 text-sm rounded bg-sgreen600 text-white">Export JSON</button>
+        <button id="exportCSV" class="px-3 py-2 text-sm rounded bg-white border">Export CSV</button>
+      </div>
+    </div>
+
+    <div class="mt-4 flex gap-3">
+      <button id="regenBtn" class="px-3 py-2 rounded-lg bg-sblue600 text-white">Regenerate Layout</button>
+
+      <label class="flex items-center gap-2 text-sm">
+        <input id="threshold" type="range" min="10" max="80" value="30" />
+        <span id="thresholdVal" class="font-medium">30</span>% threshold
+      </label>
+    </div>
+  </section>
+
+  <section class="glass p-4 rounded-xl shadow">
+    <div class="grid lg:grid-cols-4 gap-4">
+      <div class="lg:col-span-3">
+        <div id="graphWrap" class="rounded-lg bg-white/60 p-4" style="min-height:480px;">
+          <svg id="graphSVG" width="100%" height="480px"></svg>
+        </div>
+      </div>
+
+      <aside class="glass p-4 rounded-xl">
+        <h4 class="font-semibold">Legend</h4>
+        <div class="mt-3 text-sm text-slate-700">
+          <div class="flex items-center gap-2"><span class="legend-dot" style="background:#3B97C1"></span> Local Regulation</div>
+          <div class="flex items-center gap-2 mt-2"><span class="legend-dot" style="background:#4FB48E"></span> Global Standard</div>
+        </div>
+
+        <div class="mt-4">
+          <h5 class="font-semibold">Node Detail</h5>
+          <div id="nodeDetail" class="mt-2 text-sm text-slate-700">None</div>
+        </div>
+
+        <div class="mt-4">
+          <h5 class="font-semibold">Controls</h5>
+          <button id="zoomIn" class="px-2 py-1 rounded bg-sblue600 text-white text-sm">Zoom In</button>
+          <button id="zoomOut" class="px-2 py-1 rounded border text-sm ml-2">Zoom Out</button>
+        </div>
+      </aside>
+    </div>
+  </section>
+</main>
+
+<div id="footer-slot"></div>
+
+<script type="module">
+  import { injectLayout } from "../shared/components.js";
+  injectLayout();
+
+  import { initKnowledgeGraph, exportGraphJSON, exportGraphCSV } from "./knowledge-graph.js";
+
+  let graphRef = null;
+
+  document.addEventListener("DOMContentLoaded", () => {
+    graphRef = initKnowledgeGraph({
+      svgSelector: "#graphSVG",
+      regenBtn: "#regenBtn",
+      thresholdInput: "#threshold",
+      thresholdVal: "#thresholdVal",
+      nodeDetail: "#nodeDetail",
+      zoomIn: "#zoomIn",
+      zoomOut: "#zoomOut"
+    });
+  });
+
+  document.getElementById("exportJSON").addEventListener("click", () => {
+    exportGraphJSON(graphRef);
+  });
+  document.getElementById("exportCSV").addEventListener("click", () => {
+    exportGraphCSV(graphRef);
+  });
+</script>
+
+</body>
+</html>

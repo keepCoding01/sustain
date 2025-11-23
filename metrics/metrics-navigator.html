@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Metrics Navigator — SustainAlign</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            sblue: '#D7EEF7',
+            sblue600: '#3B97C1',
+            sgreen: '#E8F8EE',
+            sgreen600: '#4FB48E',
+            accent: '#6EC5C5'
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    :root { --glass-bg: rgba(255,255,255,.45); }
+    .glass { background: var(--glass-bg); backdrop-filter: blur(8px); }
+    .fade { transition: all .3s cubic-bezier(.25,.8,.25,1); }
+  </style>
+</head>
+
+<body class="min-h-screen bg-gradient-to-b from-sblue to-sgreen text-slate-800 antialiased">
+
+<div id="nav-slot"></div>
+
+<main class="max-w-7xl mx-auto p-6 space-y-10">
+
+  <section class="glass p-6 rounded-xl shadow">
+    <h1 class="text-2xl font-bold">Sustainability Metrics Navigator</h1>
+    <p class="text-sm text-slate-600 mt-1">
+      Telusuri & bandingkan requirement metrik ESG dari berbagai framework global.
+    </p>
+  </section>
+
+  <section class="glass p-6 rounded-xl shadow">
+    <h2 class="font-bold text-lg">Filter Metrics</h2>
+
+    <div class="mt-4 grid md:grid-cols-3 gap-4">
+
+      <div>
+        <label class="text-xs text-slate-600">Framework</label>
+        <select id="frameworkSel" class="w-full mt-2 p-2 bg-white border rounded text-sm">
+          <option value="GRI">GRI Standards</option>
+          <option value="ISSB">ISSB S1/S2</option>
+          <option value="SASB">SASB</option>
+          <option value="TCFD">TCFD</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="text-xs text-slate-600">Kategori</label>
+        <select id="categorySel" class="w-full mt-2 p-2 bg-white border rounded text-sm">
+          <option>Environmental</option>
+          <option>Social</option>
+          <option>Governance</option>
+          <option>General</option>
+        </select>
+      </div>
+
+      <div class="flex items-end">
+        <button id="loadBtn"
+                class="w-full px-4 py-2 bg-sgreen600 text-white rounded-lg font-semibold">
+          Load Metrics
+        </button>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="glass p-6 rounded-xl shadow space-y-4">
+    <h2 class="font-bold text-lg">Metrics List</h2>
+
+    <div class="flex gap-3">
+      <button id="exportJSON" class="px-3 py-2 bg-sblue600 text-white rounded">Export JSON</button>
+      <button id="exportCSV" class="px-3 py-2 border rounded">Export CSV</button>
+    </div>
+
+    <div id="metricsList" class="mt-2 space-y-3 text-sm"></div>
+  </section>
+
+</main>
+
+<div id="footer-slot"></div>
+
+<script type="module">
+  import { injectLayout } from "../shared/components.js";
+    injectLayout();
+  import { METRICS_DB, simulateDelay } from "../shared/shared.js";
+  import { exportJSON, exportCSV } from "../research/export.js";
+
+  const list = document.getElementById('metricsList');
+  let lastData = [];
+
+  document.getElementById('loadBtn').addEventListener('click', async() => {
+    const fw = document.getElementById('frameworkSel').value;
+    const cat = document.getElementById('categorySel').value;
+
+    list.innerHTML = "<div class='p-3 bg-white/70 rounded text-center'>Loading...</div>";
+    await simulateDelay(400, 900);
+
+    const data = METRICS_DB.filter(m => m.framework === fw && m.category === cat);
+    lastData = data;
+
+    list.innerHTML = '';
+
+    if (!data.length) {
+      list.innerHTML = `<div class="p-3 bg-white/70 rounded border text-slate-600">Tidak ada metrik ditemukan.</div>`;
+      return;
+    }
+
+    data.forEach(m => {
+      const block = document.createElement('div');
+      block.className = "p-4 bg-white/80 rounded border";
+
+      block.innerHTML = `
+        <div class="font-semibold">${m.id}</div>
+        <div class="text-slate-600 mt-1">${m.description}</div>
+        <div class="mt-2 text-xs text-slate-500">Category: ${m.category}</div>
+      `;
+
+      list.appendChild(block);
+    });
+  });
+
+  document.getElementById("exportJSON").onclick = () =>
+    exportJSON(lastData, "metrics_export.json");
+
+  document.getElementById("exportCSV").onclick = () =>
+    exportCSV(lastData.map(m => [m.id, m.description, m.category]), "metrics_export.csv");
+</script>
+
+</body>
+</html>

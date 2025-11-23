@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Auto Validation — SustainAlign</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            sblue: '#D7EEF7',
+            sblue600: '#3B97C1',
+            sgreen: '#E8F8EE',
+            sgreen600: '#4FB48E',
+            accent: '#6EC5C5',
+            danger: '#EF4444',
+            warn: '#F59E0B',
+            ok: '#10B981'
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    :root { --glass-bg: rgba(255,255,255,.42); }
+    .glass { background: var(--glass-bg); backdrop-filter: blur(8px); }
+    .fade { transition: all .32s cubic-bezier(.2,.9,.3,1); }
+    .bar { height: 14px; border-radius: 999px; }
+    .score-green { color: #059669; }
+    .score-yellow { color: #b45309; }
+    .score-red { color: #dc2626; }
+  </style>
+</head>
+
+<body class="min-h-screen bg-gradient-to-b from-sblue to-sgreen text-slate-800 antialiased">
+
+<!-- NAV injected here -->
+<div id="nav-slot"></div>
+
+<main class="max-w-6xl mx-auto p-6 space-y-8">
+  <section class="glass p-6 rounded-xl shadow">
+
+    <h2 class="text-2xl font-bold">Auto Validation Engine (UI-first Mock)</h2>
+    <p class="text-sm text-slate-600 mt-1">Upload draf laporan (PDF/Excel) — sistem akan memvalidasi draft berdasarkan field yang tersedia.</p>
+
+    <div class="mt-6 grid md:grid-cols-3 gap-4">
+      <div class="col-span-2">
+
+        <!-- Upload section -->
+        <div class="p-4 rounded-xl bg-white/60">
+          <label class="block text-sm text-slate-700">Upload Draft Report (UI-only)</label>
+
+          <div class="mt-3 border-2 border-dashed rounded-xl p-6 text-center bg-white/40">
+            <input id="fileInput" type="file" accept=".pdf,.xlsx,.csv" class="hidden" />
+            <p class="text-sm text-slate-600">
+              Drag & drop atau <button id="browseBtn" class="text-sblue600 underline">browse</button>
+            </p>
+            <div id="filePreview" class="mt-4 text-sm text-slate-700"></div>
+          </div>
+
+          <!-- Checkbox fields -->
+          <div class="mt-6">
+            <h4 class="font-semibold">Detected Fields (simulate)</h4>
+            <p class="text-xs text-slate-600">Tandai field tersedia untuk mensimulasikan hasil validasi.</p>
+
+            <div id="fields" class="mt-3 grid grid-cols-2 gap-2 text-sm">
+              <label><input type="checkbox" value="emission" class="fieldChk"> Emission Inventory</label>
+              <label><input type="checkbox" value="energy" class="fieldChk"> Energy Consumption</label>
+              <label><input type="checkbox" value="waste" class="fieldChk"> Waste Report</label>
+              <label><input type="checkbox" value="hrs" class="fieldChk"> Labor Rights</label>
+              <label><input type="checkbox" value="safety" class="fieldChk"> H&S Records</label>
+              <label><input type="checkbox" value="supply" class="fieldChk"> Supply Chain Data</label>
+            </div>
+
+            <div class="mt-4 flex gap-3">
+              <button id="runValidate" class="px-4 py-2 rounded-lg bg-sblue600 text-white">Run Validation</button>
+              <button id="autoFill" class="px-4 py-2 rounded-lg border">Auto-Fill Mock</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Validation log -->
+        <div class="mt-6 p-4 rounded-xl bg-white/60">
+          <h4 class="font-semibold">Validation Log</h4>
+          <div id="valLog" class="mt-3 text-sm text-slate-700 max-h-40 overflow-auto"></div>
+        </div>
+
+      </div>
+
+      <!-- Aside -->
+      <aside class="glass p-4 rounded-xl">
+
+        <div id="hybridPlaceholder" class="mt-4"></div>
+
+        <h4 class="font-semibold">Validation Summary</h4>
+
+        <div class="mt-3">
+          <div class="flex items-center justify-between text-sm">
+            <div>Compliance Score</div>
+            <div id="scoreVal" class="font-bold text-2xl">--%</div>
+          </div>
+
+          <div class="mt-3 bg-white/80 p-2 rounded-xl">
+            <div class="bar bg-white/40 w-full overflow-hidden">
+              <div id="barInner" class="h-3 rounded-full w-0" style="background:linear-gradient(90deg,#10B981,#F59E0B,#EF4444)"></div>
+            </div>
+            <div class="mt-2 text-xs text-slate-600">Risk Level: <span id="riskLevel">-</span></div>
+          </div>
+
+          <div class="mt-4">
+            <h5 class="font-semibold">Missing Items</h5>
+            <ul id="missingList" class="mt-2 text-sm list-disc list-inside text-slate-700"></ul>
+          </div>
+
+          <div class="mt-4">
+            <h5 class="font-semibold">AI Suggestions</h5>
+            <div id="aiSuggestions" class="mt-2 text-sm text-slate-700 space-y-2"></div>
+          </div>
+
+          <div class="mt-4 grid grid-cols-2 gap-2">
+            <button id="exportReport" class="w-full px-3 py-2 rounded-lg bg-accent text-white">Export PDF</button>
+            <button id="exportJSON" class="w-full px-3 py-2 rounded-lg border">Export JSON</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="glass p-6 rounded-xl shadow">
+    <h3 class="text-xl font-bold">Auto Remediation Suggestions</h3>
+    <div id="remedyList" class="mt-3 grid gap-3"></div>
+  </section>
+</main>
+
+<!-- FOOTER injected here -->
+<div id="footer-slot"></div>
+
+<!-- jsPDF CDN for PDF export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script type="module">
+
+  import { injectLayout } from "../shared/components.js";
+  try { injectLayout(); } catch (e) {}
+
+  // shared helpers
+  import { el, logFlowValidation, exportValidationSummary } from "../shared/shared.js";
+
+  // modular engine
+  import { runValidationEngine, generateAISuggestions } from "../validation/validation.js";
+
+  // UI elements
+  const fileInput = el('fileInput');
+  const browseBtn = el('browseBtn');
+  const filePreview = el('filePreview');
+  const valLog = el('valLog');
+  const missingList = el('missingList');
+  const remedyList = el('remedyList');
+  const barInner = el('barInner');
+  const scoreVal = el('scoreVal');
+  const aiSuggestions = el('aiSuggestions');
+
+  // upload handlers
+  browseBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', ev => {
+    const f = ev.target.files[0]; if (!f) return;
+    filePreview.innerHTML = `<div class="p-2 bg-white/80 rounded">${f.name} • ${Math.round(f.size/1024)} KB</div>`;
+    logFlowValidation('valLog', `File selected: ${f.name}`);
+  });
+
+  // auto-fill
+  el('autoFill').addEventListener('click', () => {
+    document.querySelectorAll('.fieldChk').forEach((c, i) => c.checked = i < 4);
+    logFlowValidation('valLog', 'Auto-fill simulated fields');
+  });
+
+  // helper: update UI colouring based on score
+  function updateRiskUI(score) {
+    // set bar width
+    barInner.style.width = score + '%';
+    // set color classes
+    const riskEl = el('riskLevel');
+    scoreVal.classList.remove('score-green','score-yellow','score-red');
+    if (score >= 80) {
+      scoreVal.classList.add('score-green');
+      riskEl.textContent = 'Low';
+      barInner.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--tw-color') || '#10B981';
+    } else if (score >= 50) {
+      scoreVal.classList.add('score-yellow');
+      riskEl.textContent = 'Medium';
+      barInner.style.backgroundColor = '#f59e0b';
+    } else {
+      scoreVal.classList.add('score-red');
+      riskEl.textContent = 'High';
+      barInner.style.backgroundColor = '#ef4444';
+    }
+  }
+
+  // run validation
+  el('runValidate').addEventListener('click', async () => {
+    const checked = Array.from(document.querySelectorAll('.fieldChk:checked')).map(i => i.value);
+
+    logFlowValidation('valLog', 'Validation started');
+    scoreVal.textContent = '...';
+    barInner.style.width = '0%';
+    missingList.innerHTML = '';
+    remedyList.innerHTML = '';
+    aiSuggestions.innerHTML = '';
+
+    const result = await runValidationEngine(checked, { docQuality: undefined });
+
+    // update UI
+    scoreVal.textContent = result.score + '%';
+    updateRiskUI(result.score);
+
+    (result.missing || []).forEach(m => {
+      const li = document.createElement('li');
+      li.textContent = (result.remedies || []).find(r => r.field === m)?.label || m;
+      missingList.appendChild(li);
+    });
+
+    (result.remedies || []).forEach(r => {
+      const d = document.createElement('div');
+      d.className = 'p-3 bg-white/70 rounded';
+      d.innerHTML = `<strong>${r.label || r.field}</strong><div class="text-sm text-slate-700 mt-1">${r.detail}</div>`;
+      remedyList.appendChild(d);
+    });
+
+    // AI suggestions (richer)
+    const suggestions = generateAISuggestions(result);
+    suggestions.forEach(s => {
+      const div = document.createElement('div'); div.className = 'p-2 bg-white/80 rounded';
+      div.innerHTML = `<strong>${s.title}</strong><div class="text-xs text-slate-600 mt-1">${s.text}</div>`;
+      aiSuggestions.appendChild(div);
+    });
+
+    logFlowValidation('valLog', `Validation completed — score: ${result.score}%`);
+  });
+
+  // Export JSON (existing)
+  el('exportJSON').addEventListener('click', () => {
+    const missing = Array.from(missingList.children).map(li => li.textContent);
+    const remedies = Array.from(remedyList.children).map(n => n.textContent.trim());
+    const ai = Array.from(aiSuggestions.children).map(n => n.textContent.trim());
+    const payload = { score: scoreVal.textContent, missing, remedies, ai, timestamp: new Date().toISOString() };
+    exportValidationSummary(payload);
+    logFlowValidation('valLog', 'Validation summary exported (JSON)');
+  });
+
+  // Export PDF using jsPDF
+  el('exportReport').addEventListener('click', async () => {
+    // collect data
+    const missing = Array.from(missingList.children).map(li => li.textContent);
+    const remedies = Array.from(remedyList.children).map(n => {
+      return {
+        title: n.querySelector('strong')?.textContent || '',
+        detail: n.querySelector('.text-sm')?.textContent || n.textContent
+      };
+    });
+    const ai = Array.from(aiSuggestions.children).map(n => n.textContent.trim());
+    const payload = {
+      score: scoreVal.textContent,
+      missing, remedies, ai,
+      generatedAt: new Date().toLocaleString()
+    };
+
+    // create PDF
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+
+    // Header
+    doc.setFontSize(18);
+    doc.text('SustainAlign — Validation Summary', 40, 50);
+    doc.setFontSize(11);
+    doc.text(`Generated: ${payload.generatedAt}`, 40, 70);
+    doc.text(`Compliance Score: ${payload.score}`, 40, 90);
+
+    // Risk coloring bar
+    const numericScore = parseInt((scoreVal.textContent || '0').replace('%','')) || 0;
+    let barColor = '#10B981';
+    if (numericScore >= 80) barColor = '#10B981';
+    else if (numericScore >= 50) barColor = '#F59E0B';
+    else barColor = '#EF4444';
+    // Draw colored rectangle (bar)
+    doc.setFillColor(barColor);
+    doc.rect(40, 100, (numericScore/100) * 400, 12, 'F');
+    doc.setDrawColor('#cccccc');
+    doc.rect(40, 100, 400, 12);
+
+    // Missing items
+    doc.setFontSize(13);
+    doc.text('Missing Items:', 40, 140);
+    doc.setFontSize(11);
+    let y = 160;
+    if (payload.missing.length === 0) {
+      doc.text('- None', 40, y);
+      y += 18;
+    } else {
+      payload.missing.forEach(m => { doc.text(`- ${m}`, 40, y); y += 16; });
+    }
+
+    // Remedies
+    doc.setFontSize(13); doc.text('Remedies:', 40, y + 8); doc.setFontSize(11); y += 28;
+    if (payload.remedies.length === 0) {
+      doc.text('- None', 40, y); y += 18;
+    } else {
+      payload.remedies.forEach(r => {
+        // wrap detail if long
+        doc.text(`• ${r.title}`, 40, y); y += 14;
+        const lines = doc.splitTextToSize(r.detail, 460);
+        doc.text(lines, 60, y);
+        y += lines.length * 12 + 8;
+      });
+    }
+
+    // AI Suggestions (new)
+    doc.setFontSize(13); doc.text('AI Suggestions:', 40, y + 4); y += 20;
+    doc.setFontSize(11);
+    payload.ai.forEach(s => {
+      const lines = doc.splitTextToSize(`- ${s}`, 500);
+      doc.text(lines, 40, y);
+      y += lines.length * 12 + 6;
+      // add page if nearing bottom
+      if (y > 740) { doc.addPage(); y = 40; }
+    });
+
+    // Footer
+    doc.setFontSize(9);
+    doc.text('Generated by SustainAlign (Prototype)', 40, 820);
+
+    // Save
+    const filename = `validation_summary_${Date.now()}.pdf`;
+    doc.save(filename);
+    logFlowValidation('valLog', `Validation summary exported (PDF): ${filename}`);
+  });
+
+  // init log
+  logFlowValidation('valLog', 'Auto Validation (modular) ready');
+
+</script>
+</body>
+</html>

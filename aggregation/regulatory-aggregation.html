@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Regulatory Aggregation — SustainAlign</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { sblue:'#D7EEF7', sblue600:'#3B97C1', sgreen:'#E8F8EE', sgreen600:'#4FB48E', accent:'#6EC5C5' }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    :root{--glass-bg: rgba(255,255,255,0.42);} 
+    .glass{background:var(--glass-bg);backdrop-filter:blur(8px);} 
+    .fade{transition:all .32s cubic-bezier(.2,.9,.3,1)}
+    .chip{padding:.25rem .6rem;border-radius:999px;background:rgba(255,255,255,.6);font-size:.75rem}
+    /* shimmer */
+    .shimmer { position:relative; overflow:hidden; background:linear-gradient(90deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.9) 50%, rgba(255,255,255,0.6) 100%); background-size:200% 100%; animation: shimmer 1.6s linear infinite; }
+    @keyframes shimmer { from { background-position: 200% 0 } to { background-position: -200% 0 } }
+    /* toast (Apple-style soft) */
+    .sa-toast { position: fixed; right: 18px; top: 24px; z-index: 9999; display:flex; flex-direction:column; gap:8px; }
+    .sa-toast .item { min-width: 240px; max-width: 360px; padding: 12px 14px; border-radius: 12px; backdrop-filter: blur(6px); background: rgba(255,255,255,0.7); box-shadow: 0 6px 18px rgba(2,6,23,0.08); color: #04243a; transform: translateY(-6px); opacity: 0; transition: all 320ms cubic-bezier(.2,.9,.3,1); }
+    .sa-toast .item.show { transform: translateY(0); opacity: 1; }
+    .sa-toast .title { font-weight: 600; font-size: 0.95rem; }
+    .sa-toast .small { font-size: 0.82rem; color: rgba(2,6,23,0.6); margin-top: 4px; }
+  </style>
+</head>
+
+<body class="min-h-screen bg-gradient-to-b from-sblue to-sgreen text-slate-800 antialiased">
+
+  <!-- NAV SLOT (kept so layout injection from shared/components.js still works) -->
+  <div id="nav-slot"></div>
+
+  <!-- NOTE: Proposal path (local file) -->
+  <!-- Proposal file (local path): /mnt/data/PROPOSAL_SOLVIA_REGULATORY INTEGRATION FOR SUSTAINABILITY_SUSTAINALIGN, SISTEM PENYELARASAN REGULASI LOKAL DAN GLOBAL UNTUK KEPATUHAN KEBERLANJUTAN PERUSAHAAN.docx -->
+
+  
+
+  <main class="max-w-7xl mx-auto p-6 grid lg:grid-cols-4 gap-6">
+
+    <!-- Sidebar (mini dashboard) -->
+    <aside class="col-span-1 glass p-4 rounded-xl shadow">
+      <h3 class="font-semibold">Quick Overview</h3>
+      <div class="mt-3 text-sm text-slate-700">
+        <p>Regulations aggregated: <span id="countRegs" class="font-bold">0</span></p>
+        <p>Last crawl: <span id="lastCrawl">-</span></p>
+        <p class="mt-2">Classifier status: <span id="clfStatus" class="font-semibold text-sblue600">Idle</span></p>
+      </div>
+      <div class="mt-4">
+        <button id="openUpload" class="w-full px-3 py-2 rounded-lg bg-sblue600 text-white">Upload Regulation (PDF / TXT)</button>
+      </div>
+      <div class="mt-4">
+        <label class="text-xs text-slate-600">Filter by topic</label>
+        <select id="topicFilter" class="mt-2 w-full px-3 py-2 rounded border bg-white/70 text-sm">
+          <option value="">All topics</option>
+        </select>
+      </div>
+    </aside>
+
+    <!-- Main content: upload & list -->
+    <section class="col-span-3 glass p-6 rounded-xl shadow">
+      <div class="flex items-start justify-between">
+        <div>
+          <h2 class="text-2xl font-bold">Regulatory Aggregation & Classification</h2>
+          <p class="text-sm text-slate-600 mt-1">Drag files here or upload to simulate auto-crawl & AI classification (UI mock). Each file will be auto-classified into one or more sustainability topics.</p>
+        </div>
+        <div class="text-sm text-slate-600">
+          <span class="chip">GAI Classifier: IndoBERT (mock)</span>
+        </div>
+      </div>
+
+      <div class="mt-6 grid md:grid-cols-3 gap-4">
+        <div class="col-span-2">
+          <div id="dropZone" class="border-2 border-dashed border-white/60 rounded-xl p-6 text-center bg-white/40">
+            <p class="text-slate-700">Drop files here or <button id="fileBtn" class="text-sblue600 underline">browse</button></p>
+            <input id="fileInput" type="file" multiple accept=".pdf,.txt,.docx" class="hidden" />
+            <div id="previewList" class="mt-4 text-sm text-slate-700"></div>
+          </div>
+
+          <div class="mt-6">
+            <h4 class="font-semibold">Aggregated Regulations</h4>
+            <div id="regList" class="mt-3 space-y-3 max-h-64 overflow-auto"></div>
+            <div id="emptyState" class="mt-3 text-sm text-slate-500">No regulations aggregated yet — upload files to begin.</div>
+          </div>
+        </div>
+
+        <!-- right column: classification summary -->
+        <div>
+          <h4 class="font-semibold">Classification Summary</h4>
+          <p class="text-sm text-slate-600 mt-1">Counts per topic (mock AI output)</p>
+          <div id="classSummary" class="mt-3 space-y-2"></div>
+
+          <div class="mt-6">
+            <h5 class="font-semibold">12 Sustainability Topics</h5>
+            <ul id="topicList" class="mt-2 text-sm list-disc list-inside text-slate-700"></ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+ 
+
+  <!-- toast container -->
+  <div id="saToast" class="sa-toast" aria-live="polite"></div>
+
+  <script type="module">
+    // --- Inject shared layout if present (non-destructive) ---
+    import { injectLayout } from "../shared/components.js";
+    try { injectLayout(); } catch(e){ /* ignore if not present */ }
+
+    // --- Imports (modular core) ---
+    import { runAggregationPipeline } from "../aggregation/aggregation.js";
+    import { simulateDelay } from "../shared/shared.js";
+
+    // --- local helpers & graceful backwards compatibility with earlier UI ---
+    const el = (id) => document.getElementById(id);
+
+    // ----- SIMPLE APP TOAST (Apple-style) -----
+    const toastRoot = el('saToast');
+    function showToast(title, subtitle = '', opts = {timeout: 3500}) {
+      const item = document.createElement('div');
+      item.className = 'item';
+      item.innerHTML = `<div class="title">${title}</div>${subtitle? `<div class="small">${subtitle}</div>`:''}`;
+      toastRoot.prepend(item);
+      // animate in (next tick)
+      requestAnimationFrame(()=> item.classList.add('show'));
+      // auto-dismiss
+      const t = setTimeout(()=> {
+        item.classList.remove('show');
+        setTimeout(()=> item.remove(), 320);
+      }, opts.timeout);
+      // allow manual dismiss on click
+      item.addEventListener('click', ()=> { clearTimeout(t); item.classList.remove('show'); setTimeout(()=> item.remove(), 220); });
+    }
+
+    // ----- persistence key -----
+    const STORAGE_KEY = 'sustainalign_aggregated_regs_v1';
+
+    // sample topics (kept from your original)
+    const TOPICS = [
+      'Emisi (Carbon & Air)', 'Air & Water Management', 'Limbah & Circular Economy', 'Hak Tenaga Kerja',
+      'Kesehatan & Keselamatan Kerja', 'Governance & Anti-Corruption', 'Biodiversity', 'Energy Efficiency',
+      'Supply Chain & Sourcing', 'Community & Social Impact', 'Product Stewardship', 'Climate Risk & Adaptation'
+    ];
+
+    // initial sample regs (moved to persistent store if user already had data)
+    const DEFAULT_REGS = [
+      {id:'KLHK-001', title:'Peraturan Emisi 2021', text:'regulation text about emissions', topics:['Emisi (Carbon & Air)']},
+      {id:'ESDM-002', title:'Permen Energi 2020', text:'energy efficiency rules', topics:['Energy Efficiency']},
+      {id:'LIM-004', title:'Limbah B3 2022', text:'waste handling', topics:['Limbah & Circular Economy']},
+      {id:'K3-003', title:'Keselamatan Kerja 2019', text:'safety rules', topics:['Kesehatan & Keselamatan Kerja']}
+    ];
+
+    // load/save
+    function loadRegs(){
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if(!raw) return DEFAULT_REGS.slice();
+        return JSON.parse(raw);
+      } catch(e) { return DEFAULT_REGS.slice(); }
+    }
+    function saveRegs(list){
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    }
+
+    // UI renderers
+    function renderRegulations(list){
+      const wrap = el('regList');
+      if(!wrap) return;
+      wrap.innerHTML='';
+      if(list.length === 0) {
+        el('emptyState').style.display = 'block';
+      } else {
+        el('emptyState').style.display = 'none';
+      }
+      list.forEach(r=>{
+        const d = document.createElement('div'); d.className='p-3 rounded bg-white/80 border';
+        d.innerHTML = `<div class="flex justify-between items-start"><div><h5 class="font-semibold">${r.title}</h5><p class="text-xs text-slate-600">ID: ${r.id}</p></div><div><button class='px-2 py-1 rounded text-xs bg-sblue600 text-white classifyBtn' data-id='${r.id}'>Classify</button></div></div>`;
+        wrap.appendChild(d);
+      });
+    }
+
+    function renderSummary(list){
+      const summary = {};
+      TOPICS.forEach(t=>summary[t]=0);
+      list.forEach(r=>{ (r.topics||[]).forEach(tp=>{ if(summary[tp]!==undefined) summary[tp]++; else summary[tp]=1; })});
+      const wrap = el('classSummary'); wrap.innerHTML='';
+      Object.keys(summary).forEach(k=>{
+        if(summary[k]>0){
+          const row=document.createElement('div');
+          row.className='flex justify-between items-center';
+          row.innerHTML = `<div class='text-sm'>${k}</div><div class='text-sm font-semibold'>${summary[k]}</div>`;
+          wrap.appendChild(row);
+        }
+      });
+      // topic list
+      const topicListEl = el('topicList'); topicListEl.innerHTML='';
+      TOPICS.forEach(t=> { const li = document.createElement('li'); li.textContent = t; topicListEl.appendChild(li); });
+    }
+
+    // init UI: restore persisted regs
+    let regs = loadRegs();
+    renderRegulations(regs);
+    renderSummary(regs);
+    el('countRegs').textContent = regs.length;
+    el('lastCrawl').textContent = new Date().toLocaleString();
+
+    // file upload handlers (UI-only + persistence)
+    el('fileBtn').addEventListener('click', ()=> el('fileInput').click());
+    el('openUpload').addEventListener('click', ()=> { el('dropZone').scrollIntoView({behavior:'smooth'}); el('fileInput').click(); });
+
+    el('fileInput').addEventListener('change', (ev)=>{
+      const files = Array.from(ev.target.files || []);
+      const preview = el('previewList'); preview.innerHTML='';
+      if(files.length === 0) return;
+      files.forEach(f=>{
+        const p = document.createElement('div'); p.className='p-2 rounded bg-white/70 border'; p.textContent = f.name; preview.appendChild(p);
+      });
+
+      // simulate aggregation: convert files into regs quickly (UI mock)
+      files.forEach(f=>{
+        const name = f.name.toLowerCase();
+        let topics = ['Governance & Anti-Corruption'];
+        if(name.includes('emisi')||name.includes('emission')) topics=['Emisi (Carbon & Air)'];
+        if(name.includes('limbah')||name.includes('b3')) topics=['Limbah & Circular Economy'];
+        const newReg = { id: 'UPL-'+Math.floor(Math.random()*9000+1000), title: f.name, text: 'uploaded file', topics };
+        regs.push(newReg);
+      });
+
+      saveRegs(regs);
+      renderRegulations(regs);
+      renderSummary(regs);
+      el('countRegs').textContent = regs.length;
+      el('lastCrawl').textContent = new Date().toLocaleString();
+
+      showToast('Upload complete', `${files.length} file(s) added`);
+    });
+
+    // classify button (simulate AI classification per doc)
+    document.addEventListener('click', (e)=>{
+      const btn = e.target.closest('.classifyBtn'); if(!btn) return;
+      const id = btn.dataset.id; btn.disabled=true; btn.textContent='Classifying...';
+      el('clfStatus').textContent='Classifying (mock)';
+      // show shimmer on the reg card
+      const card = btn.closest('div[p-3]') || btn.closest('.p-3');
+      if(card) card.classList.add('shimmer');
+
+      // use modular pipeline to simulate extended aggregation+classification
+      simulateDelay(500, 1000).then(()=>{
+        const reg = regs.find(r=> r.id === id);
+        if(reg){
+          const extra = TOPICS[Math.floor(Math.random()*TOPICS.length)];
+          if(!reg.topics.includes(extra)) reg.topics.push(extra);
+          saveRegs(regs);
+          renderRegulations(regs);
+          renderSummary(regs);
+        }
+        el('clfStatus').textContent='Idle';
+        showToast('Classification complete', `Regulation ${id} classified`);
+      }).catch(err=>{
+        showToast('Error', 'Classification failed');
+        console.error(err);
+      }).finally(()=>{ btn.disabled=false; btn.textContent='Classify'; if(card) card.classList.remove('shimmer'); });
+    });
+
+    // topic filter
+    el('topicFilter').addEventListener('change', (e)=>{
+      const v = e.target.value;
+      if(!v) renderRegulations(regs);
+      else renderRegulations(regs.filter(r=> (r.topics||[]).includes(v)));
+    });
+
+    // Run formal aggregation pipeline (calls modular core)
+    // This trigger demonstrates modular call and shows loading states/toasts
+    async function runFullAggregation(sector = 'manufacturing'){
+      showToast('Aggregation started', `sector: ${sector}`);
+      el('clfStatus').textContent = 'Aggregating...';
+      try {
+        const results = await runAggregationPipeline(sector); // core module returns normalized regs
+        // merge without duplicates
+        const existingIds = new Set(regs.map(r=>r.id));
+        results.forEach(res => {
+          if(!existingIds.has(res.id)){
+            regs.push({ id: res.id, title: res.title, text: res.title, topics: (res.keywords||[]).slice(0,1).map(k=> TOPICS.find(t=> t.toLowerCase().includes(k)) || 'Governance & Anti-Corruption') });
+          }
+        });
+        saveRegs(regs);
+        renderRegulations(regs);
+        renderSummary(regs);
+        el('countRegs').textContent = regs.length;
+        el('lastCrawl').textContent = new Date().toLocaleString();
+        showToast('Aggregation complete', `${results.length} regulations fetched`);
+      } catch (err) {
+        console.error(err);
+        showToast('Aggregation error', 'See console');
+      } finally {
+        el('clfStatus').textContent = 'Idle';
+      }
+    }
+
+    // expose a gentle UI control: run full pipeline on double click of header title
+    document.querySelector('h2')?.addEventListener('dblclick', ()=> runFullAggregation(el('topicFilter').value || 'manufacturing'));
+
+    // small init toast to show features
+    showToast('SustainAlign ready', 'Tip: Double-click the page title to run aggregation pipeline (demo mode)');
+
+    // ensure initial state saved
+    saveRegs(regs);
+  </script>
+
+  <div id="footer-slot"></div>
+</body>
+</html>

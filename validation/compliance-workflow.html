@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Compliance Workflow — SustainAlign</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {theme:{extend:{colors:{sblue:'#D7EEF7',sblue600:'#3B97C1',sgreen:'#E8F8EE',sgreen600:'#4FB48E',accent:'#6EC5C5'}}}};
+  </script>
+  <style>
+    :root{--glass-bg:rgba(255,255,255,.42);} .glass{background:var(--glass-bg);backdrop-filter:blur(8px);} .fade{transition:all .28s}
+    .task-done{opacity:.6;text-decoration:line-through}
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-sblue to-sgreen text-slate-800 antialiased">
+
+<header class="glass sticky top-0 z-40 border-b border-white/30">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-12 h-12 rounded-full bg-gradient-to-br from-sblue600 to-sgreen600 flex items-center justify-center text-white font-bold">SA</div>
+      <div>
+        <h1 class="text-lg font-bold">SustainAlign — Compliance Workflow</h1>
+        <p class="text-xs text-slate-600">Actionable roadmap: convert findings to tasks, assign, track, export.</p>
+      </div>
+    </div>
+    <div class="text-sm text-slate-600">Proposal: <a href="/mnt/data/PROPOSAL_SOLVIA_REGULATORY INTEGRATION FOR SUSTAINABILITY_SUSTAINALIGN, SISTEM PENYELARASAN REGULASI LOKAL DAN GLOBAL UNTUK KEPATUHAN KEBERLANJUTAN PERUSAHAAN.docx" class="underline">Open</a></div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto p-6 space-y-6">
+  <section class="glass p-6 rounded-xl shadow">
+    <h2 class="text-xl font-bold">Workflow & Task Manager</h2>
+    <p class="text-sm text-slate-600 mt-1">Ubah hasil Validation / Metrics / Report menjadi task actionable untuk tim. Tasks disimpan di localStorage (prototype).</p>
+
+    <div class="mt-4 grid md:grid-cols-3 gap-4">
+      <div class="md:col-span-2">
+        <label class="text-xs text-slate-600">New Task from Finding</label>
+        <div class="mt-2 grid md:grid-cols-3 gap-2">
+          <input id="taskTitle" placeholder="Judul tugas (contoh: Inventaris Emisi)" class="px-3 py-2 rounded border bg-white/80" />
+          <input id="assignee" placeholder="Penanggung jawab" class="px-3 py-2 rounded border bg-white/80" />
+          <input id="dueDate" type="date" class="px-3 py-2 rounded border bg-white/80" />
+        </div>
+        <textarea id="taskNote" placeholder="Catatan / link regulasi / rekomendasi" class="mt-3 w-full px-3 py-2 rounded border bg-white/80" rows="3"></textarea>
+
+        <div class="mt-3 flex gap-2">
+          <button id="addTask" class="px-4 py-2 rounded bg-sblue600 text-white">Add Task</button>
+          <button id="importVal" class="px-4 py-2 rounded border">Import Validation JSON</button>
+          <button id="clearAll" class="px-4 py-2 rounded border">Clear All</button>
+        </div>
+
+      </div>
+
+      <aside class="glass p-4 rounded-xl">
+        <h4 class="font-semibold">Quick Templates</h4>
+        <div class="mt-2 text-sm space-y-2">
+          <button class="w-full text-left px-3 py-2 bg-white/80 rounded templateBtn" data-title="Conduct Emission Inventory" data-note="Lakukan inventarisasi emisi Scope 1 & 2; referensi: KLHK-001">Emission Inventory</button>
+          <button class="w-full text-left px-3 py-2 bg-white/80 rounded templateBtn" data-title="Collect Energy Data" data-note="Kumpulkan meter reading per unit produksi; referensi: ESDM-002">Energy Data</button>
+          <button class="w-full text-left px-3 py-2 bg-white/80 rounded templateBtn" data-title="Limbah Handling Plan" data-note="Susun rencana pengelolaan limbah B3; referensi: LIM-004">Waste Plan</button>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="glass p-6 rounded-xl shadow">
+    <h3 class="font-bold">Task Board</h3>
+    <div class="mt-4 grid md:grid-cols-3 gap-4">
+      <div>
+        <h4 class="font-semibold">To Do</h4>
+        <div id="todoList" class="mt-3 space-y-2"></div>
+      </div>
+      <div>
+        <h4 class="font-semibold">In Progress</h4>
+        <div id="inprogList" class="mt-3 space-y-2"></div>
+      </div>
+      <div>
+        <h4 class="font-semibold">Done</h4>
+        <div id="doneList" class="mt-3 space-y-2"></div>
+      </div>
+    </div>
+
+    <div class="mt-4 flex gap-3">
+      <button id="exportTasks" class="px-4 py-2 rounded bg-sgreen600 text-white">Export Tasks (JSON)</button>
+      <div id="taskMsg" class="text-sm text-slate-600 self-center"></div>
+    </div>
+  </section>
+</main>
+
+<footer class="py-6 text-center text-sm text-slate-600">© SustainAlign — Workflow</footer>
+
+<script type="module">
+  import { el } from '../shared/shared.js';
+
+  const taskTitle = el('taskTitle');
+  const assignee = el('assignee');
+  const dueDate = el('dueDate');
+  const taskNote = el('taskNote');
+  const addTask = el('addTask');
+  const importVal = el('importVal');
+  const clearAll = el('clearAll');
+  const todoList = el('todoList');
+  const inprogList = el('inprogList');
+  const doneList = el('doneList');
+  const exportTasks = el('exportTasks');
+  const taskMsg = el('taskMsg');
+
+  const STORAGE_KEY = 'sustainalign_tasks_v1';
+
+  function loadTasks(){
+    const raw = localStorage.getItem(STORAGE_KEY); return raw? JSON.parse(raw): [];
+  }
+  function saveTasks(tasks){ localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)); }
+
+  function render(){
+    const tasks = loadTasks();
+    todoList.innerHTML = ''; inprogList.innerHTML = ''; doneList.innerHTML = '';
+    tasks.forEach(t=>{
+      const card = document.createElement('div'); card.className='p-3 bg-white/80 rounded shadow-sm';
+      card.innerHTML = `<div class="flex justify-between items-start"><div><strong>${t.title}</strong><div class='text-xs text-slate-600'>${t.note||''}</div></div><div class='text-xs text-slate-500'>${t.assignee||'-'} • ${t.due||'-'}</div></div>`;
+      const btns = document.createElement('div'); btns.className='mt-2 flex gap-2';
+
+      const toNext = document.createElement('button'); toNext.className='px-2 py-1 rounded text-sm border'; toNext.textContent='→';
+      toNext.onclick = ()=>{ moveTask(t.id); };
+      const del = document.createElement('button'); del.className='px-2 py-1 rounded text-sm border'; del.textContent='✕'; del.onclick = ()=>{ deleteTask(t.id); };
+      btns.appendChild(toNext); btns.appendChild(del); card.appendChild(btns);
+
+      if(t.status==='todo') todoList.appendChild(card);
+      else if(t.status==='inprog') inprogList.appendChild(card);
+      else doneList.appendChild(card);
+    });
+  }
+
+  function addNewTask(title, note, assigneeName, due){
+    const tasks = loadTasks();
+    const id = 't'+Date.now();
+    tasks.push({id, title, note, assignee:assigneeName, due, status:'todo', created:new Date().toISOString()});
+    saveTasks(tasks); render(); taskMsg.textContent='Task added.'; setTimeout(()=>taskMsg.textContent='',1800);
+  }
+
+  function moveTask(id){
+    const tasks = loadTasks();
+    const t = tasks.find(x=>x.id===id); if(!t) return;
+    if(t.status==='todo') t.status='inprog'; else if(t.status==='inprog') t.status='done'; else t.status='done';
+    saveTasks(tasks); render();
+  }
+
+  function deleteTask(id){
+    let tasks = loadTasks(); tasks = tasks.filter(x=>x.id!==id); saveTasks(tasks); render();
+  }
+
+  // import validation JSON (simulate user selecting a validation summary exported earlier)
+  importVal.addEventListener('click', async ()=>{
+    const input = document.createElement('input'); input.type='file'; input.accept='application/json'; input.onchange = (e)=>{
+      const f = e.target.files[0]; if(!f) return; const reader = new FileReader(); reader.onload = ()=>{
+        try{ const json = JSON.parse(reader.result); // expect {missing: [...], score: 'xx%'}
+          const missing = json.missing || [];
+          missing.forEach(m=> addNewTask('Action: '+m, 'Auto-generated from validation', 'Compliance Team', ''));
+          taskMsg.textContent = 'Imported validation and created tasks.'; setTimeout(()=>taskMsg.textContent='',2000);
+        }catch(err){ taskMsg.textContent = 'Invalid file.'; }
+      }; reader.readAsText(f);
+    }; input.click();
+  });
+
+  addTask.addEventListener('click', ()=>{
+    const t = taskTitle.value.trim(); if(!t) { taskMsg.textContent='Title required.'; setTimeout(()=>taskMsg.textContent='',1400); return; }
+    addNewTask(t, taskNote.value, assignee.value, dueDate.value);
+    taskTitle.value=''; taskNote.value=''; assignee.value=''; dueDate.value='';
+  });
+
+  // templates
+  document.querySelectorAll('.templateBtn').forEach(b=> b.addEventListener('click', ()=>{
+    addNewTask(b.dataset.title, b.dataset.note, 'Compliance Team', '');
+  }));
+
+  clearAll.addEventListener('click', ()=>{ localStorage.removeItem(STORAGE_KEY); render(); taskMsg.textContent='All cleared.'; setTimeout(()=>taskMsg.textContent='',1400); });
+
+  exportTasks.addEventListener('click', ()=>{
+    const data = loadTasks(); const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='sustainalign_tasks.json'; a.click(); URL.revokeObjectURL(url); taskMsg.textContent='Tasks exported.'; setTimeout(()=>taskMsg.textContent='',1400);
+  });
+
+  // initial render
+  render();
+</script>
+</body>
+</html>

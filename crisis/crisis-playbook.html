@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Crisis Response Playbook — SustainAlign</title>
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { sblue:'#D7EEF7', sblue600:'#3B97C1', sgreen:'#E8F8EE', sgreen600:'#4FB48E', accent:'#6EC5C5' } } } };
+  </script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- jsPDF UMD -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <style>
+    :root{--glass-bg:rgba(255,255,255,.42);}
+    .glass{background:var(--glass-bg);backdrop-filter:blur(8px);}
+    .timeline-dot{width:10px;height:10px;border-radius:999px;display:inline-block;margin-right:.5rem}
+    .step-card{border-radius:12px;background:rgba(255,255,255,.85);padding:12px;border:1px solid rgba(0,0,0,0.06)}
+    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Courier New", monospace}
+
+    .timeline-wrapper {
+        height: 320px;
+        position: relative;
+        }
+
+  </style>
+</head>
+
+
+<body class="min-h-screen bg-gradient-to-b from-sblue to-sgreen text-slate-800 antialiased ">
+    
+<div id="nav-slot"></div>
+
+<header class="max-w-7xl mx-auto mb-6">
+  <div class="glass mt-4 p-4 rounded-xl mx-14 shadow flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-bold">Crisis Response Playbook</h1>
+      <p class="text-sm text-slate-600">Simulasi flow tindakan cepat untuk incident.</p>
+    </div>
+  </div>
+</header>
+
+
+<main class="max-w-6xl mx-auto grid lg:grid-cols-3 gap-6">
+
+  <!-- Input -->
+  <section class="glass p-6 rounded-xl shadow lg:col-span-1">
+    <h2 class="font-semibold text-lg">Input Incident</h2>
+
+    <div class="mt-4 space-y-3 text-sm">
+      <label>Jenis Insiden</label>
+      <select id="incidentType" class="w-full px-3 py-2 rounded border bg-white text-sm">
+        <option value="kebocoran">Kebocoran Limbah</option>
+        <option value="kebakaran">Kebakaran</option>
+        <option value="kecelakaan">Workplace Accident</option>
+      </select>
+
+      <label>Severity Level</label>
+      <select id="severity" class="w-full px-3 py-2 rounded border bg-white text-sm">
+        <option value="low">Low</option>
+        <option value="medium">Medium</option>
+        <option value="high">High</option>
+        <option value="critical">Critical</option>
+      </select>
+
+      <label>Lokasi</label>
+      <input id="location" class="w-full px-3 py-2 rounded border bg-white text-sm" placeholder="Lokasi kejadian" />
+
+      <label>Waktu Kejadian</label>
+      <input id="timestamp" type="datetime-local" class="w-full px-3 py-2 rounded border bg-white text-sm" />
+
+      <label>Catatan Singkat</label>
+      <textarea id="note" rows="3" class="w-full px-3 py-2 rounded border bg-white text-sm"></textarea>
+
+      <div class="flex gap-2 mt-3">
+        <button id="genBtn" class="flex-1 px-4 py-2 rounded bg-sblue600 text-white">Generate Playbook</button>
+        <button id="resetBtn" class="px-4 py-2 rounded border">Reset</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Output -->
+  <section class="glass p-6 rounded-xl shadow lg:col-span-2">
+    <h2 class="font-semibold text-lg">Response Output</h2>
+
+    <div id="summary" class="mt-4 text-sm"></div>
+
+    <div class="mt-4 grid lg:grid-cols-2 gap-4">
+
+      <div>
+        <h3 class="font-semibold">Immediate Action Steps</h3>
+        <div id="actions" class="mt-3 space-y-3"></div>
+
+        <h3 class="font-semibold mt-4">Stakeholder Communication</h3>
+        <div id="comm" class="mt-3 space-y-2"></div>
+
+        <h3 class="font-semibold mt-4">Documentation Checklist</h3>
+        <ul id="docs" class="mt-2 list-disc list-inside text-sm text-slate-700"></ul>
+      </div>
+
+      <div>
+        <h3 class="font-semibold">Visual Timeline</h3>
+        <div class="timeline-wrapper"><canvas id="timelineChart"></canvas></div>
+
+
+        <div class="mt-4 flex gap-2">
+          <button id="exportPdf" class="px-4 py-2 rounded bg-sgreen600 text-white">Export PDF</button>
+          <button id="exportJson" class="px-4 py-2 rounded border">Export JSON</button>
+          <button id="copyBtn" class="px-4 py-2 rounded border">Copy Text</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="playbookRaw" class="mt-6 p-4 hidden bg-white/80 rounded mono text-xs"></div>
+  </section>
+</main>
+
+  <div id="footer-slot"></div>
+  <script type = "module">
+    import { injectLayout } from "../shared/components.js";
+    injectLayout();
+// jsPDF binding
+    const { jsPDF } = window.jspdf;
+
+    // Helpers
+    const $ = id => document.getElementById(id);
+    let timelineChart = null;
+    const ctx = document.getElementById('timelineChart').getContext('2d');
+        // Module-scoped helper + generator
+        
+    const rand = (min,max) => Math.floor(min + Math.random()*(max-min+1));
+
+    // DOM
+    const genBtn = $('genBtn'), resetBtn = $('resetBtn');
+    const exportPdfBtn = $('exportPdf'), exportJsonBtn = $('exportJson'), copyBtn = $('copyBtn');
+    const summaryEl = $('summary'), actionsEl = $('actions'), commEl = $('comm'), docsEl = $('docs'), rawEl = $('playbookRaw');
+
+    // Chart
+   
+
+    // Templates / canned text (more variety)
+    const commTemplates = {
+      internal: [
+        "Segera informasikan ke HSE & Manajer Pabrik. Instruksi: evakuasi area bila perlu, hentikan proses pada unit terdampak.",
+        "Internal alert: Activate on-call emergency team; hubungi tim K3 dan security."
+      ],
+      regulators: [
+        "Melaporkan insiden ke instansi terkait sesuai Peraturan Emisi / Limbah (sertakan ringkasan dan langkah mitigasi).",
+        "Jika ada potensi dampak lingkungan, laporkan ke KLHK sesuai prosedur; sertakan bukti awal."
+      ],
+      community: [
+        "Siapkan pernyataan singkat untuk masyarakat setempat (bahasa sederhana) dan hotline informasi.",
+        "Koordinasikan komunikasi dengan kepala desa/kelurahan bila lokasi berdampak publik."
+      ]
+    };
+
+    const checklists = {
+      kebocoran: [
+        "Foto lokasi kejadian",
+        "Sample air/soil (jika relevan)",
+        "Log operasional & catatan shift",
+        "Laporan immediate containment"
+      ],
+      kebakaran: [
+        "Foto & video dari safe distance",
+        "Report firefighting team response",
+        "Incident report & witness statements",
+        "Damage assessment preliminary"
+      ],
+      kecelakaan: [
+        "First aid report & medical records",
+        "Witness statements",
+        "Machine logs & lockout-tagout evidence",
+        "Root cause quick notes"
+      ]
+    };
+
+    function severityToColor(s) {
+      if (s === 'critical' || s === 'high') return '#ef4444'; // red
+      if (s === 'medium') return '#f59e0b'; // amber
+      return '#10b981'; // green
+    }
+
+    // Main generator function (mock "AI")
+    function generatePlaybook({type, severity, location, timestamp, note}) {
+      const t = timestamp ? new Date(timestamp).toLocaleString() : new Date().toLocaleString();
+      const titleMap = {
+        kebocoran: 'Kebocoran Limbah',
+        kebakaran: 'Kebakaran',
+        kecelakaan: 'Workplace Accident'
+      };
+      const title = titleMap[type] || 'Insiden';
+
+      const severityLabel = {
+        low: 'Low', medium: 'Medium', high: 'High', critical: 'Critical'
+      }[severity];
+
+      // Summary
+      const summary = {
+        title,
+        severity: severityLabel,
+        location,
+        time: t,
+        note
+      };
+
+      // Immediate steps (ordered)
+      const baseSteps = [
+        {step:'Secure area', detail:'Isolasi area terdampak dan hentikan aliran / proses yang menyebabkan eksposur.'},
+        {step:'Assess safety', detail:'Pastikan tidak ada korban tambahan; lakukan evakuasi jika perlu.'},
+        {step:'Containment', detail:'Ambil tindakan penahanan awal (booms, absorbents, fire suppression, separator).'},
+        {step:'Notify', detail:'Hubungi tim HSE, security, dan manajemen; informasikan kondisi awal.'},
+        {step:'Record & preserve', detail:'Dokumentasikan kondisi (foto, video) dan amankan evidence.'}
+      ];
+
+      // customize by type/severity
+      const modifiers = [];
+      if (type === 'kebocoran') {
+        modifiers.push({step:'Stop source', detail:'Matikan flow/valves, aktifkan containment bermaterial absorbent.'});
+        modifiers.push({step:'Environmental sampling', detail:'Ambil sampel air/tanah untuk analisis lebih lanjut.'});
+      } else if (type === 'kebakaran') {
+        modifiers.push({step:'Fire suppression', detail:'Aktifkan Pemadam Kebakaran internal; hubungi fire brigade.'});
+        modifiers.push({step:'Evacuation & accounting', detail:'Evakuasi dan hitung personel; prioritaskan safety.'});
+      } else if (type === 'kecelakaan') {
+        modifiers.push({step:'First aid & triage', detail:'Berikan pertolongan pertama, kirim ke fasilitas medis jika diperlukan.'});
+        modifiers.push({step:'Isolate equipment', detail:'Hentikan mesin & beri tanda lockout-tagout pada peralatan.'});
+      }
+
+      // severity adjustments: add more steps for high/critical
+      if (severity === 'high' || severity === 'critical') {
+        modifiers.push({step:'Activate incident command', detail:'Formalkan Incident Command System dan shift pembagian tugas.'});
+        modifiers.push({step:'External notification', detail:'Laporkan ke regulator & emergency services (police/fire dept) sesuai peraturan.'});
+      }
+
+      // Compose action list: base + modifiers prioritized
+      let actions = [...baseSteps];
+      // Insert modifiers after containment
+      actions.splice(3, 0, ...modifiers);
+
+      // Add short randomized operational tips to make it less repetitive
+      const tips = [
+        "Simpan semua evidences terpisah untuk chain-of-custody.",
+        "Gunakan PPE level sesuai SOP area (respirator, chemical gloves).",
+        "Pastikan dokumentasi timestamp dan nama petugas yang bertugas."
+      ];
+
+      // Stakeholder messages (three audiences)
+      const comms = [
+        {audience:'Internal (HSE / Ops)', text: commTemplates.internal[Math.floor(Math.random()*commTemplates.internal.length)]},
+        {audience:'Regulator', text: commTemplates.regulators[Math.floor(Math.random()*commTemplates.regulators.length)]},
+        {audience:'Community / Media', text: commTemplates.community[Math.floor(Math.random()*commTemplates.community.length)]}
+      ];
+
+      // Documentation checklist
+      const docs = checklists[type] ? checklists[type].slice() : ['Photo & evidence', 'Incident log'];
+
+      // Timeline (mock): array of {timeOffsetMin, label}
+      const now = new Date(timestamp || Date.now());
+      const timeline = [
+        {min:0, label:'T0 — Immediate response (secure & assess)'},
+        {min:15, label:'T+15 — Containment / first aid'},
+        {min:60, label:'T+1h — Incident Command stand-up'},
+        {min:180, label:'T+3h — Sampling & regulator notification'},
+        {min:1440, label:'T+24h — Initial incident report submitted'}
+      ];
+
+      // For low severity, compress timeline; for critical, extend & add review
+      if (severity === 'low') timeline[2].min = 30, timeline.splice(3,1); // shorten
+      if (severity === 'critical') timeline.push({min:10080, label:'T+7d — Post-incident review & remediation plan'});
+
+      // AI-like suggestions: generate a few realistic sounding items with variable depth
+      const aiSuggestions = [
+        `Assign rapid root-cause team (2-3 personel) to collect machine & process logs within 24h.`,
+        `Perform temporary containment (booms, berms) and plan permanent engineering fix in 2-4 weeks.`,
+        `If wastewater affected, sample upstream/downstream and apply corrective discharge controls.`
+      ];
+      // shuffle pick 2-3 with some randomness
+      const shuffle = arr => arr.sort(()=> Math.random() - 0.5);
+      const suggestions = shuffle(aiSuggestions).slice(0, Math.min(3, 1 + Math.floor(Math.random()*3)));
+
+      // final playbook object
+      return {
+        meta: summary,
+        actions,
+        tips,
+        comms,
+        docs,
+        timeline,
+        suggestions,
+        generatedAt: new Date().toISOString()
+      };
+    }
+
+    // Render functions
+    function renderPlaybook(playbook) {
+      // Summary
+      summaryEl.innerHTML = `
+        <div class="p-3 step-card">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-sm text-slate-600">Incident</div>
+              <div class="font-semibold">${playbook.meta.title} — ${playbook.meta.severity}</div>
+              <div class="text-xs text-slate-600 mt-1">${playbook.meta.location} • ${playbook.meta.time}</div>
+            </div>
+            <div style="text-align:right">
+              <div class="text-xs text-slate-500">Generated</div>
+              <div class="font-mono mono text-xs">${new Date(playbook.generatedAt).toLocaleString()}</div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Actions
+      actionsEl.innerHTML = '';
+      playbook.actions.forEach((a, i) => {
+        const div = document.createElement('div');
+        div.className = 'step-card';
+        div.innerHTML = `<div class="flex items-start gap-3">
+          <div class="timeline-dot" style="background:${i<2? '#ef4444' : '#3B97C1'}"></div>
+          <div>
+            <div class="font-semibold">${i+1}. ${a.step}</div>
+            <div class="text-sm text-slate-700 mt-1">${a.detail}</div>
+          </div>
+        </div>`;
+        actionsEl.appendChild(div);
+      });
+
+      // Comm
+      commEl.innerHTML = '';
+      playbook.comms.forEach(c => {
+        const d = document.createElement('div');
+        d.className = 'p-3 bg-white/90 rounded border text-sm';
+        d.innerHTML = `<div class="font-semibold">${c.audience}</div><div class="text-xs text-slate-700 mt-1">${c.text}</div>`;
+        commEl.appendChild(d);
+      });
+
+      // Docs
+      docsEl.innerHTML = '';
+      playbook.docs.forEach(d => {
+        const li = document.createElement('li'); li.textContent = d;
+        docsEl.appendChild(li);
+      });
+
+      // raw
+      rawEl.textContent = JSON.stringify(playbook, null, 2);
+      rawEl.classList.add('hidden');  
+
+      // draw timeline chart
+      drawTimelineChart(playbook.timeline);
+    }
+
+    // Chart rendering
+    function drawTimelineChart(timeline) {
+  const maxX = Math.max(...timeline.map(t => t.min)) || 60;
+
+  if (timelineChart) timelineChart.destroy();
+
+  timelineChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      datasets: [{
+        label: 'Response Timeline',
+        data: timeline.map((t, i) => ({ x: t.min, y: i + 1 })),
+        borderColor: '#3B97C1',
+        backgroundColor: '#4FB48E',
+        fill: false,
+        tension: 0.25,
+        pointRadius: 6
+      }]
+    },
+    options: {
+      animation: false,                 // prevent looping animation
+      scales: {
+        x: {
+          type: 'linear',
+          position: 'bottom',
+          title: { display: true, text: 'Minutes (relative to incident)' },
+          min: 0,
+          max: maxX + 10
+        },
+        y: {
+          ticks: {
+            callback: (value, index) => timeline[index]?.label.split('—')[0] || ''
+          },
+          title: { display: false }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: (ctx) => timeline[ctx[0].dataIndex].label,
+            label: (ctx) => `Offset: ${ctx.parsed.x} min`
+          }
+        }
+      },
+      responsive: true,
+      maintainAspectRatio: false
+    }
+  });
+}
+
+
+    // PDF export: render summary + actions + embed chart image
+    async function exportPDF(playbook) {
+      // capture chart as image
+      const chartCanvas = document.getElementById('timelineChart');
+      const chartImg = chartCanvas.toDataURL('image/png', 1.0);
+
+      // create doc
+      const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+      const margin = 40;
+      let y = margin;
+
+      // Header
+      doc.setFontSize(14);
+      doc.text('SustainAlign — Crisis Response Playbook', margin, y);
+      y += 18;
+      doc.setFontSize(10);
+      doc.text(`Incident: ${playbook.meta.title} — Severity: ${playbook.meta.severity}`, margin, y);
+      doc.text(`Location: ${playbook.meta.location}`, margin + 320, y);
+      y += 16;
+      doc.text(`Time: ${playbook.meta.time}`, margin, y);
+      y += 18;
+
+      // Insert chart (fit width)
+      const imgW = doc.internal.pageSize.getWidth() - margin*2;
+      const imgH = 160;
+      doc.addImage(chartImg, 'PNG', margin, y, imgW, imgH);
+      y += imgH + 10;
+
+      // Actions (loop and paginate)
+      doc.setFontSize(12);
+      doc.text('Immediate Action Steps:', margin, y);
+      y += 16;
+      doc.setFontSize(10);
+      playbook.actions.forEach((a, i) => {
+        const title = `${i+1}. ${a.step}`;
+        const split = doc.splitTextToSize(a.detail, doc.internal.pageSize.getWidth() - margin*2 - 10);
+        if (y + 40 > doc.internal.pageSize.getHeight() - margin) {
+          doc.addPage(); y = margin;
+        }
+        doc.text(title, margin, y);
+        y += 12;
+        doc.setFontSize(9);
+        doc.text(split, margin + 10, y);
+        y += split.length * 10 + 8;
+        doc.setFontSize(10);
+      });
+
+      // Communication templates & docs checklist
+      if (y + 120 > doc.internal.pageSize.getHeight() - margin) { doc.addPage(); y = margin; }
+      doc.setFontSize(12); doc.text('Stakeholder Communications:', margin, y); y += 14;
+      doc.setFontSize(9);
+      playbook.comms.forEach(c => {
+        const lines = doc.splitTextToSize(`${c.audience}: ${c.text}`, doc.internal.pageSize.getWidth() - margin*2);
+        doc.text(lines, margin, y);
+        y += lines.length * 9 + 6;
+      });
+
+      if (y + 60 > doc.internal.pageSize.getHeight() - margin) { doc.addPage(); y = margin; }
+      doc.setFontSize(12); doc.text('Documentation Checklist:', margin, y); y += 14;
+      doc.setFontSize(9);
+      playbook.docs.forEach(d => {
+        doc.text(`- ${d}`, margin, y);
+        y += 10;
+      });
+
+      // Footer / metadata
+      doc.setFontSize(8);
+      doc.text(`Generated at: ${new Date(playbook.generatedAt).toLocaleString()}`, margin, doc.internal.pageSize.getHeight() - 30);
+
+      // Save
+      doc.save(`playbook_${playbook.meta.title.replace(/\s+/g,'_')}.pdf`);
+    }
+
+    // Wire events
+    genBtn.addEventListener('click', ()=> {
+      const payload = {
+        type: $('incidentType').value,
+        severity: $('severity').value,
+        location: $('location').value || 'Unknown location',
+        timestamp: $('timestamp').value || new Date().toISOString(),
+        note: $('note').value || ''
+      };
+      const pb = generatePlaybook(payload);
+      // small UI polish: show short tips
+      renderPlaybook(pb);
+
+      // attach to export buttons via closure (so they refer to latest playbook)
+      exportPdfBtn.onclick = () => exportPDF(pb);
+      exportJsonBtn.onclick = () => {
+        const blob = new Blob([JSON.stringify(pb, null, 2)], {type:'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = `playbook_${pb.meta.title.replace(/\s+/g,'_')}.json`; a.click(); URL.revokeObjectURL(url);
+      };
+      copyBtn.onclick = () => {
+        const text = pb.actions.map((a,i)=> `${i+1}. ${a.step}\n${a.detail}\n`).join('\n');
+        navigator.clipboard?.writeText(text).then(()=> alert('Action steps copied to clipboard')).catch(()=> alert('Copy failed'));
+      };
+    });
+
+    resetBtn.addEventListener('click', ()=> {
+      $('incidentType').value = 'kebocoran';
+      $('severity').value = 'medium';
+      $('location').value = '';
+      $('timestamp').value = '';
+      $('note').value = '';
+      summaryEl.innerHTML = '';
+      actionsEl.innerHTML = '';
+      commEl.innerHTML = '';
+      docsEl.innerHTML = '';
+      if (timelineChart) { timelineChart.destroy(); timelineChart = null; }
+      rawEl.classList.add('hidden');
+    });
+
+    // init default timestamp to now
+    $('timestamp').value = new Date().toISOString().slice(0,16);
+
+  </script>
+</body>
+</html>
